@@ -262,6 +262,50 @@ function dk(d){const now=new Date(),dt=new Date(now);dt.setDate(now.getDate()+d-
 function sum(arr){return arr.reduce((a,e)=>({cal:a.cal+e.cal*e.fac,p:a.p+e.p*e.fac,f:a.f+e.f*e.fac,c:a.c+e.c*e.fac}),{cal:0,p:0,f:0,c:0});}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+// ─── SUPABASE ──────────────────────────────────────────────────────
+const SB_URL='https://rwbtyraafyxwpfqurdln.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3YnR5cmFhZnl4d3BmcXVyZGxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MjcxODQsImV4cCI6MjA5MzQwMzE4NH0.-SIsge78TEM4xrPJSPproGoGHj1jyl8dByOAS3FENMM';
+const USER_ID='vittura';
+
+async function sbLoad(){
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/userdata?user_id=eq.${USER_ID}&select=data`,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    const rows=await res.json();
+    if(rows&&rows.length>0){
+      const d=JSON.parse(rows[0].data);
+      ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
+      // Also sync to localStorage
+      ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{
+        try{localStorage.setItem('nm_'+k,JSON.stringify(S[k]));}catch(e){}
+      });
+    }
+  }catch(e){console.log('Offline, using local data');}
+}
+
+async function sbSave(){
+  const d={};
+  ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>d[k]=S[k]);
+  const body=JSON.stringify({user_id:USER_ID,data:JSON.stringify(d)});
+  try{
+    // Try update first
+    const upd=await fetch(`${SB_URL}/rest/v1/userdata?user_id=eq.${USER_ID}`,{
+      method:'PATCH',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body
+    });
+    if(upd.status===404||upd.headers.get('content-range')==='*/0'){
+      // Insert if not exists
+      await fetch(`${SB_URL}/rest/v1/userdata`,{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body
+      });
+    }
+  }catch(e){console.log('Offline, saved locally only');}
+}
+
 // ─── STORAGE ───────────────────────────────────────────────────────
 function load(){
   ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{
@@ -272,6 +316,7 @@ function persist(){
   ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{
     try{localStorage.setItem('nm_'+k,JSON.stringify(S[k]));}catch(e){}
   });
+  sbSave(); // sync to cloud
 }
 
 // ─── RENDER ────────────────────────────────────────────────────────
@@ -779,13 +824,34 @@ const DEFAULT_RECIPES = [
 ];
 
 // ─── INIT ──────────────────────────────────────────────────────────
-load();
-// Inject default recipes only on first launch
+load(); // load local first for instant display
 if(!localStorage.getItem('nm_recipes')){
   S.recipes = DEFAULT_RECIPES;
   persist();
 }
-r();
+r(); // render immediately with local data
+
+// Then sync from cloud and re-render
+sbLoad().then(()=>{
+  if(!localStorage.getItem('nm_recipes')){
+    S.recipes = DEFAULT_RECIPES;
+    persist();
+  }
+  r();
+});
+
+// Show sync indicator
+function showSync(){
+  const el=document.createElement('div');
+  el.innerHTML='☁️ Synchronisé';
+  el.style.cssText='position:fixed;bottom:20px;right:16px;background:#2d4a2d;color:#fff;padding:8px 14px;border-radius:20px;font-size:12px;font-family:Georgia,serif;z-index:9999;opacity:1;transition:opacity 1s';
+  document.body.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),1000);},2000);
+}
+
+const _persist = persist;
+window.persistAndShow = function(){_persist();showSync();};
+
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
 if(isIOS&&!window.navigator.standalone&&!localStorage.getItem('nm_b'))
   setTimeout(()=>{document.getElementById('ibanner').style.display='block';},2500);
