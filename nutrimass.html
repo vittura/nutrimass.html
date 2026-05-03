@@ -335,7 +335,7 @@ function rTracker(ents,tot,isDim,key){
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <div class="dw" style="flex:1">
         <input type="text" placeholder="Chercher un aliment…" value="${esc(S.tsearch)}" oninput="onTS(this.value)" autocomplete="off" autocorrect="off" spellcheck="false"/>
-        ${S.tdrop?fddrop('t',S.tsearch):''}
+        <div id="tdropwrap">${S.tdrop?fddrop('t',S.tsearch):''}</div>
       </div>
       <input type="number" id="tqty" value="${S.tqty}" min="1" style="width:70px" oninput="S.tqty=+this.value" placeholder="g"/>
     </div>
@@ -391,7 +391,7 @@ function rPlanning(){
       ${S.pmode==='food'?`<div style="display:flex;gap:8px">
         <div class="dw" style="flex:1">
           <input type="text" placeholder="Chercher…" value="${esc(S.psearch)}" oninput="onPS(this.value)" autocomplete="off" autocorrect="off"/>
-          ${S.pdrop?fddrop('p',S.psearch):''}
+          <div id="pdropwrap">${S.pdrop?fddrop('p',S.psearch):''}</div>
         </div>
         <input type="number" value="${S.pqty}" min="1" style="width:68px" oninput="S.pqty=+this.value" placeholder="g"/>
       </div>`:`<div>${S.recipes.length===0?`<div style="text-align:center;color:#b0b8a8;padding:16px;font-size:13px">Crée d'abord une recette 🍳</div>`:
@@ -404,7 +404,7 @@ function rPlanning(){
   });
 
   h+=`<div class="card" style="padding:14px"><div class="sectt">📝 Notes du jour</div>
-    <textarea rows="3" style="resize:none;line-height:1.5" placeholder="Restes, courses, idées…" oninput="savPN(this.value)">${esc(S.pn[S.pad]||'')}</textarea>
+    <textarea rows="3" style="resize:none;line-height:1.5" placeholder="Restes, courses, idées…" onblur="savPN(this.value)" onchange="savPN(this.value)">${esc(S.pn[S.pad]||'')}</textarea>
   </div>`;
   return h;
 }
@@ -452,7 +452,7 @@ function rRecipes(){
         <button style="background:none;border:none;color:#b0b8a8;font-size:24px" onclick="closeRF()">×</button>
       </div>
       <span class="lb">Nom *</span>
-      <input type="text" value="${esc(f.name)}" placeholder="Ex: Bowl poulet riz" style="margin-bottom:4px" oninput="S.rf.name=this.value"/>
+      <input type="text" value="${esc(f.name)}" placeholder="Ex: Bowl poulet riz" style="margin-bottom:4px" id="rfname"/>
       <span class="lb">Catégorie</span>
       <select style="margin-bottom:4px" onchange="S.rf.cat=this.value">${RC.map(c=>`<option value="${c}"${f.cat===c?' selected':''}>${c}</option>`).join('')}</select>
       <span class="lb">Ingrédients *</span>
@@ -472,12 +472,12 @@ function rRecipes(){
       <div style="display:flex;gap:8px;margin-bottom:4px">
         <div class="dw" style="flex:1">
           <input type="text" placeholder="Ajouter un ingrédient…" value="${esc(S.ringsearch)}" oninput="onRI(this.value)" autocomplete="off" autocorrect="off"/>
-          ${S.rdrop?fddrop('r',S.ringsearch):''}
+          <div id="rdropwrap">${S.rdrop?fddrop('r',S.ringsearch):''}</div>
         </div>
         <input type="number" value="${f.ingqty||100}" min="1" style="width:68px" oninput="S.rf.ingqty=+this.value" placeholder="g"/>
       </div>
       <span class="lb">Instructions (optionnel)</span>
-      <textarea rows="4" style="resize:vertical;line-height:1.5;margin-bottom:20px" placeholder="Étapes…" oninput="S.rf.inst=this.value">${esc(f.inst||'')}</textarea>
+      <textarea rows="4" style="resize:vertical;line-height:1.5;margin-bottom:20px" placeholder="Étapes…" id="rfinst">${esc(f.inst||'')}</textarea>
       <div style="display:flex;gap:8px">
         <button class="btn-s" style="flex:1" onclick="closeRF()">Annuler</button>
         <button class="btn-p" style="flex:2;${!f.name.trim()||!f.ings.length?'background:#f0ebe0;color:#b0b8a8;':''}" onclick="saveRF()">${f.id?'Mettre à jour':'Enregistrer'}</button>
@@ -586,7 +586,7 @@ function rHistory(){
 function go(t){S.tab=t;r();}
 function setDay(i){S.day=i;r();}
 function togCr(){const k=dk(S.day);S.creatine[k]=!S.creatine[k];persist();r();}
-function onTS(v){S.tsearch=v;S.tsfood=null;S.tdrop=v.length>0;r();}
+function onTS(v){S.tsearch=v;S.tsfood=null;S.tdrop=v.length>0;const w=document.getElementById("tdropwrap");if(w){w.innerHTML=v.length>0?fddrop("t",v):'';} }
 function selF(id,name){
   const fd=FDB.find(f=>f.n===name);
   if(id==='t'){S.tsfood=fd;S.tsearch=name;S.tdrop=false;}
@@ -605,7 +605,7 @@ function delE(k,id){S.entries[k]=(S.entries[k]||[]).filter(e=>e.id!==id);persist
 function setPD(i){S.pad=i;S.pam=null;r();}
 function togPA(mi){S.pam=S.pam===mi?null:mi;S.psearch='';S.pdrop=false;r();}
 function setPM2(m){S.pmode=m;r();}
-function onPS(v){S.psearch=v;S.pdrop=v.length>0;r();}
+function onPS(v){S.psearch=v;S.pdrop=v.length>0;const w=document.getElementById("pdropwrap");if(w){w.innerHTML=v.length>0?fddrop("p",v):'';} }
 function addFP(){
   const f=S.psfood;if(!f||S.pam===null)return;
   const k=`${S.pad}_${S.pam}`,qty=S.pqty||100;
@@ -627,11 +627,16 @@ function openRF(){S.rf={id:null,name:'',cat:'Déjeuner',inst:'',ingqty:100,ings:
 function closeRF(){S.rfopen=false;r();}
 function editR(id){const rx=S.recipes.find(x=>x.id===id);if(!rx)return;S.rf={...rx,ingqty:100,ings:rx.ings.map(i=>({...i}))};S.rfopen=true;S.ringsearch='';S.rdrop=false;r();}
 function delR(id){S.recipes=S.recipes.filter(rx=>rx.id!==id);S.openR.delete(id);persist();r();}
-function onRI(v){S.ringsearch=v;S.rdrop=v.length>0;r();}
+function onRI(v){S.ringsearch=v;S.rdrop=v.length>0;const w=document.getElementById("rdropwrap");if(w){w.innerHTML=v.length>0?fddrop("r",v):'';} }
 function addRI2(f){if(!f)return;const qty=S.rf.ingqty||100;S.rf.ings.push({n:f.n,cal:f.cal,p:f.p,f:f.f,c:f.c,fac:qty/100,qty});S.ringsearch='';S.rdrop=false;r();}
 function delRI(idx){S.rf.ings.splice(idx,1);r();}
 function saveRF(){
-  const f=S.rf;if(!f.name.trim()||!f.ings.length)return;
+  const f=S.rf;
+  const nameEl=document.getElementById('rfname');
+  const instEl=document.getElementById('rfinst');
+  if(nameEl) f.name=nameEl.value;
+  if(instEl) f.inst=instEl.value;
+  if(!f.name.trim()||!f.ings.length)return;
   const rx={id:f.id||Date.now(),name:f.name.trim(),cat:f.cat,inst:f.inst||'',ings:f.ings};
   if(f.id)S.recipes=S.recipes.map(x=>x.id===f.id?rx:x);else S.recipes.push(rx);
   S.rfopen=false;persist();r();
