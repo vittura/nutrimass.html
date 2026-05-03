@@ -650,8 +650,101 @@ function clrSC(){S.sc={};persist();r();}
 function addSM(){const inp=document.getElementById('smi'),qInp=document.getElementById('smq');const nm=inp?.value.trim();if(!nm)return;const qty=qInp?.value?+qInp.value:null;S.sm.push({id:'m'+Date.now(),name:nm,qty,auto:false});persist();r();}
 function delSM(id){S.sm=S.sm.filter(i=>i.id!==id);persist();r();}
 
+// ─── DEFAULT RECIPES ───────────────────────────────────────────────
+const DEFAULT_RECIPES = [
+  // PETIT DEJ
+  {id:1001,name:"PD1 — Overnight Oats Banane Miel",cat:"Petit déj",inst:"Mélange tout la veille dans un bol ou un bocal. Mets au frigo. Le matin ajoute la banane coupée.",ings:[
+    {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.8,qty:80},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200},
+    {n:"Yaourt grec 0%",cal:57,p:10,f:0.2,c:3.5,fac:1,qty:100},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100},
+    {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.1,qty:10},
+  ]},
+  {id:1002,name:"PD2 — Overnight Oats Fruits Rouges",cat:"Petit déj",inst:"Mélange avoine, lait et skyr la veille. Ajoute les fraises le matin et le miel.",ings:[
+    {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.8,qty:80},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200},
+    {n:"Skyr nature",cal:63,p:11,f:0.2,c:4,fac:1,qty:100},
+    {n:"Fraises",cal:32,p:0.7,f:0.3,c:7.7,fac:1,qty:100},
+    {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.1,qty:10},
+  ]},
+  {id:1003,name:"PD3 — Overnight Oats Beurre Cacahuète",cat:"Petit déj",inst:"Mélange tout la veille sauf la banane. Mets au frigo. Ajoute la banane le matin.",ings:[
+    {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.8,qty:80},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200},
+    {n:"Fromage blanc 0%",cal:45,p:8,f:0.1,c:4,fac:1,qty:100},
+    {n:"Beurre de cacahuète",cal:588,p:25,f:50,c:20,fac:0.2,qty:20},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100},
+  ]},
+  // DEJEUNER
+  {id:2001,name:"DJ1 — Bowl Poulet Riz Patate Douce",cat:"Déjeuner",inst:"Cuis le poulet à la poêle avec un filet d'huile d'olive. Cuis le riz et la patate douce. Assemble dans un bowl.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.8,qty:180},
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2.5,qty:250},
+    {n:"Patate douce cuite",cal:86,p:1.6,f:0.1,c:20,fac:1.5,qty:150},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10},
+  ]},
+  {id:2002,name:"DJ2 — Pâtes Poulet Sauce Tomate",cat:"Déjeuner",inst:"Cuis les pâtes. Poêle le poulet coupé en dés. Mélange tout avec la sauce tomate et le parmesan.",ings:[
+    {n:"Pâtes blanches cuites",cal:158,p:5.8,f:0.9,c:31,fac:3,qty:300},
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.5,qty:150},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:1,qty:100},
+    {n:"Parmesan",cal:431,p:38,f:29,c:3.2,fac:0.2,qty:20},
+  ]},
+  {id:2003,name:"DJ3 — Wrap Thon Fromage Blanc",cat:"Déjeuner",inst:"Mélange le thon égoutté avec le fromage blanc. Étale sur les tortillas. Ajoute la tomate coupée. Roule et c'est prêt.",ings:[
+    {n:"Tortilla blé",cal:306,p:8.3,f:7.8,c:49,fac:2,qty:2},
+    {n:"Thon naturel",cal:116,p:26,f:1,c:0,fac:1.6,qty:160},
+    {n:"Fromage blanc 0%",cal:45,p:8,f:0.1,c:4,fac:1,qty:100},
+    {n:"Tomate",cal:18,p:0.9,f:0.2,c:3.9,fac:1,qty:100},
+  ]},
+  // DINER
+  {id:3001,name:"DI1 — Steak Haché Patate Douce Carottes",cat:"Dîner",inst:"Cuis le steak à la poêle. Cuis la patate douce et les carottes à la vapeur ou au micro-ondes. Sers avec un filet d'huile.",ings:[
+    {n:"Steak haché 5%",cal:135,p:21,f:5,c:0,fac:2,qty:200},
+    {n:"Patate douce cuite",cal:86,p:1.6,f:0.1,c:20,fac:2,qty:200},
+    {n:"Carottes",cal:41,p:0.9,f:0.2,c:10,fac:1,qty:100},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10},
+  ]},
+  {id:3002,name:"DI2 — Poulet Riz Complet Poivron",cat:"Dîner",inst:"Cuis le poulet à la poêle avec le poivron coupé en lanières. Sers sur le riz complet avec un filet d'huile.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.8,qty:180},
+    {n:"Riz complet cuit",cal:123,p:2.7,f:1,c:26,fac:2.5,qty:250},
+    {n:"Poivron rouge",cal:31,p:1,f:0.3,c:6,fac:1.5,qty:150},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10},
+  ]},
+  {id:3003,name:"DI3 — Bœuf Rumsteak Pâtes",cat:"Dîner",inst:"Cuis les pâtes. Grille le rumsteak à la poêle 3 min de chaque côté. Sers avec la sauce tomate chauffée et le parmesan.",ings:[
+    {n:"Bœuf rumsteak",cal:158,p:28,f:5,c:0,fac:1.6,qty:160},
+    {n:"Pâtes complètes cuites",cal:149,p:5.5,f:0.9,c:29,fac:2.8,qty:280},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:0.8,qty:80},
+    {n:"Parmesan",cal:431,p:38,f:29,c:3.2,fac:0.15,qty:15},
+  ]},
+  // COLLATION
+  {id:4001,name:"CO1 — Yaourt Grec Banane Amandes",cat:"Collation",inst:"Verse le yaourt dans un bol. Ajoute la banane coupée, les amandes et le miel.",ings:[
+    {n:"Yaourt grec 0%",cal:57,p:10,f:0.2,c:3.5,fac:2,qty:200},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100},
+    {n:"Amandes",cal:579,p:21,f:50,c:22,fac:0.3,qty:30},
+    {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.1,qty:10},
+  ]},
+  {id:4002,name:"CO2 — Fromage Blanc Fruits Secs Noix",cat:"Collation",inst:"Mélange le fromage blanc avec les raisins secs et les noix. Simple et rapide.",ings:[
+    {n:"Fromage blanc 0%",cal:45,p:8,f:0.1,c:4,fac:2,qty:200},
+    {n:"Raisin sec",cal:299,p:3.1,f:0.5,c:79,fac:0.4,qty:40},
+    {n:"Noix",cal:654,p:15,f:65,c:14,fac:0.25,qty:25},
+  ]},
+  {id:4003,name:"CO3 — Skyr Banane Beurre Cacahuète",cat:"Collation",inst:"Verse le skyr dans un bol. Ajoute la banane coupée et le beurre de cacahuète.",ings:[
+    {n:"Skyr nature",cal:63,p:11,f:0.2,c:4,fac:2,qty:200},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100},
+    {n:"Beurre de cacahuète",cal:588,p:25,f:50,c:20,fac:0.2,qty:20},
+  ]},
+  // POST-SPORT
+  {id:5001,name:"Post-Sport — Shake Banane Lait",cat:"Post-sport",inst:"Mixe ou mélange directement dans un shaker. À boire dans les 30 min après le sport.",ings:[
+    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200},
+  ]},
+];
+
 // ─── INIT ──────────────────────────────────────────────────────────
-load();r();
+load();
+// Inject default recipes only on first launch
+if(!localStorage.getItem('nm_recipes')){
+  S.recipes = DEFAULT_RECIPES;
+  persist();
+}
+r();
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
 if(isIOS&&!window.navigator.standalone&&!localStorage.getItem('nm_b'))
   setTimeout(()=>{document.getElementById('ibanner').style.display='block';},2500);
