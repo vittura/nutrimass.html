@@ -144,6 +144,7 @@ button{cursor:pointer;border:none;font-weight:700}
       <button class="tb" onclick="go('planning')">📅</button>
       <button class="tb" onclick="go('recipes')">🍳</button>
       <button class="tb" onclick="go('courses')">🛒</button>
+      <button class="tb" onclick="go('sport')">🏋️</button>
       <button class="tb" onclick="go('history')">📈</button>
     </div>
   </div>
@@ -251,12 +252,14 @@ let S={
   entries:{},creatine:{},recipes:[],
   pm:{},pn:{},
   sc:{},sm:[],sr:[],ssrc:'planning',
-  pad:0,pam:null,pmode:'food',psearch:'',pqty:100,psfood:null,
-  tsearch:'',tqty:100,tmeal:0,tsfood:null,tdrop:false,
+  pad:0,pam:null,pmode:'food',psearch:'',pqty:100,punit:'g',psfood:null,
+  tsearch:'',tqty:100,tunit:'g',tmeal:0,tsfood:null,tdrop:false,
+  scanResult:null,scanError:null,
+  scannedFoods:[],
   pdrop:false,rdrop:false,
   rfopen:false,rf:{id:null,name:'',cat:'Déjeuner',inst:'',ingqty:100,ings:[]},
   ringsearch:'',
-  openR:new Set(),atr:null,
+  openR:new Set(),atr:null,rcatTab:'Tous',sport:{},sportTab:0,
 };
 function dk(d){const now=new Date(),dt=new Date(now);dt.setDate(now.getDate()+d-today);return dt.toISOString().slice(0,10);}
 function sum(arr){return arr.reduce((a,e)=>({cal:a.cal+e.cal*e.fac,p:a.p+e.p*e.fac,f:a.f+e.f*e.fac,c:a.c+e.c*e.fac}),{cal:0,p:0,f:0,c:0});}
@@ -275,7 +278,7 @@ async function sbLoad(){
     const rows=await res.json();
     if(rows&&rows.length>0){
       const d=JSON.parse(rows[0].data);
-      ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
+      ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       // Also sync to localStorage
       ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{
         try{localStorage.setItem('nm_'+k,JSON.stringify(S[k]));}catch(e){}
@@ -286,7 +289,7 @@ async function sbLoad(){
 
 async function sbSave(){
   const d={};
-  ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>d[k]=S[k]);
+  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods'].forEach(k=>d[k]=S[k]);
   const body=JSON.stringify({user_id:USER_ID,data:JSON.stringify(d)});
   try{
     // Try update first
@@ -295,7 +298,7 @@ async function sbSave(){
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
       body
     });
-    if(upd.status===404||upd.headers.get('content-range')==='*/0'){
+    if(upd.status===404||upd.headers.get('content-range')==='*\/0'){
       // Insert if not exists
       await fetch(`${SB_URL}/rest/v1/userdata`,{
         method:'POST',
@@ -308,12 +311,12 @@ async function sbSave(){
 
 // ─── STORAGE ───────────────────────────────────────────────────────
 function load(){
-  ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{
+  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods'].forEach(k=>{
     try{const v=localStorage.getItem('nm_'+k);if(v)S[k]=JSON.parse(v);}catch(e){}
   });
 }
 function persist(){
-  ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{
+  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods'].forEach(k=>{
     try{localStorage.setItem('nm_'+k,JSON.stringify(S[k]));}catch(e){}
   });
   sbSave(); // sync to cloud
@@ -324,7 +327,7 @@ function r(){
   const key=dk(S.day),ents=S.entries[key]||[],tot=sum(ents),isDim=S.day===6;
   document.getElementById('calbig').textContent=Math.round(tot.cal);
   // tabs
-  const tabs=['tracker','planning','recipes','courses','history'];
+  const tabs=['tracker','planning','recipes','courses','sport','history'];
   document.querySelectorAll('.tb').forEach((b,i)=>b.classList.toggle('on',tabs[i]===S.tab));
   // day strip
   const dstrip=document.getElementById('dstrip');
@@ -344,6 +347,7 @@ function r(){
   else if(S.tab==='planning') tc.innerHTML=rPlanning();
   else if(S.tab==='recipes') tc.innerHTML=rRecipes();
   else if(S.tab==='courses') tc.innerHTML=rCourses();
+  else if(S.tab==='sport') tc.innerHTML=rSport();
   else if(S.tab==='history') tc.innerHTML=rHistory();
 }
 
@@ -353,9 +357,20 @@ function mbar(label,val,min,max,col){
   return`<div class="mbw"><div class="mbh"><span class="mbl">${label}</span><span class="mbv" style="color:${sc}">${Math.round(val)}${max?` / ${min}–${max}`:` / ${min}`}</span></div><div class="mbt"><div class="mbf" style="width:${pct}%;background:${bc}"></div></div></div>`;
 }
 function fddrop(id,val){
-  const q=val.toLowerCase(),fl=q?FDB.filter(f=>f.n.toLowerCase().includes(q)).slice(0,20):[];
+  const q=val.toLowerCase();
+  // Combine FOOD_DB with scanned foods (scanned first if they match)
+  const allFoods=[...S.scannedFoods,...FDB];
+  // Deduplicate by name
+  const seen=new Set();
+  const unique=allFoods.filter(f=>{if(seen.has(f.n))return false;seen.add(f.n);return true;});
+  const fl=q?unique.filter(f=>f.n.toLowerCase().includes(q)).slice(0,25):[];
   if(!fl.length)return'';
-  return`<div class="dl2">${fl.map(f=>`<div class="di2" onclick="selF('${id}','${esc(f.n)}')">${esc(f.n)}<span class="dk">${f.cal}kcal</span></div>`).join('')}</div>`;
+  return'<div class="dl2">'+fl.map(f=>{
+    const isScanned=S.scannedFoods.some(sf=>sf.n===f.n);
+    return'<div class="di2" onclick="selF(\''+id+'\',\''+esc(f.n)+'\')">'+
+      (isScanned?'<span style="font-size:10px;background:#eaf2ec;color:#4a7c59;padding:1px 5px;border-radius:8px;margin-right:5px">📷</span>':'')+
+      esc(f.n)+'<span class="dk">'+f.cal+' kcal</span></div>';
+  }).join('')+'</div>';
 }
 
 function rTracker(ents,tot,isDim,key){
@@ -376,18 +391,37 @@ function rTracker(ents,tot,isDim,key){
     ${mbar('Lipides (g)',tot.f,G.fat.min,G.fat.max,'#c67c3a')}
   </div>
   <div class="card mb12" style="padding:16px">
-    <div class="sectt">+ Ajouter un aliment</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="sectt" style="margin-bottom:0">+ Ajouter un aliment</div>
+      <button onclick="startScan()" style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#eaf2ec;border:1px solid #c8dece;border-radius:10px;color:#2d4a2d;font-size:13px;font-weight:700;font-family:inherit">
+        📷 Scanner
+      </button>
+    </div>
+    ${S.scanResult?`<div style="background:#eaf2ec;border:1px solid #c8dece;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-weight:700;color:#2c3a2c;font-size:13px">${esc(S.scanResult.name)}</div>
+      <div style="font-size:11px;color:#7a8a72">${S.scanResult.cal} kcal · P:${S.scanResult.p}g · L:${S.scanResult.f}g · G:${S.scanResult.c}g / 100g</div></div>
+      <button onclick="S.scanResult=null;r()" style="background:none;border:none;color:#b0b8a8;font-size:18px">×</button>
+    </div>`:''}
+    ${S.scanError?`<div style="background:#fdecea;border:1px solid #f5c6c2;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;color:#c04a3a">${esc(S.scanError)}</div>`:''}
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <div class="dw" style="flex:1">
         <input type="text" placeholder="Chercher un aliment…" value="${esc(S.tsearch)}" oninput="onTS(this.value)" autocomplete="off" autocorrect="off" spellcheck="false"/>
         <div id="tdropwrap">${S.tdrop?fddrop('t',S.tsearch):''}</div>
       </div>
-      <input type="number" id="tqty" value="${S.tqty}" min="1" style="width:70px" oninput="S.tqty=+this.value" placeholder="g"/>
+      <div style="display:flex;gap:4px">
+        <input type="number" id="tqty" value="${S.tqty}" min="1" style="width:60px;border-radius:10px 0 0 10px;border-right:none" oninput="S.tqty=+this.value" placeholder="100"/>
+        <select id="tunit" onchange="S.tunit=this.value" style="width:52px;border-radius:0 10px 10px 0;padding:10px 4px;font-size:13px;border-left:1px solid #e4ddd0">
+          <option value="g"${S.tunit==='g'?' selected':''}>g</option>
+          <option value="ml"${S.tunit==='ml'?' selected':''}>ml</option>
+          <option value="cl"${S.tunit==='cl'?' selected':''}>cl</option>
+          <option value="L"${S.tunit==='L'?' selected':''}>L</option>
+        </select>
+      </div>
     </div>
     <select id="tmeal" style="margin-bottom:10px" onchange="S.tmeal=+this.value">
-      ${MN.filter((_,i)=>!(isDim&&i===4)).map((m,i)=>`<option value="${i}"${S.tmeal===i?' selected':''}>${MI[i]} ${m}</option>`).join('')}
+      ${MN.filter((_,i)=>!(isDim&&i===4)).map((m,i)=>'<option value="'+i+'"'+(S.tmeal===i?' selected':'')+'>'+MI[i]+' '+m+'</option>').join('')}
     </select>
-    <button class="btn-p" style="width:100%" onclick="addFT()"${!S.tsfood?' disabled style="background:#f0ebe0;color:#b0b8a8"':''}>Ajouter</button>
+    <button class="btn-p" style="width:100%" onclick="addFT()"${!S.tsfood&&!S.scanResult?' disabled style="background:#f0ebe0;color:#b0b8a8"':''}>Ajouter</button>
   </div>`;
 
   let any=false;
@@ -397,7 +431,7 @@ function rTracker(ents,tot,isDim,key){
     any=true;
     const mt=sum(me);
     h+=`<div class="ms"><div class="msh"><div class="mt2"><span style="font-size:18px">${MI[mi]}</span><span class="mn">${mn}</span></div><span class="mk">${Math.round(mt.cal)} kcal</span></div>
-    ${me.map(e=>`<div class="fr"><div><span class="fn">${esc(e.n)}</span><span class="fq">${e.qty}g</span></div><div style="display:flex;align-items:center;gap:10px"><span class="fk">${Math.round(e.cal*e.fac)} kcal</span><span class="fp">P ${Math.round(e.p*e.fac)}g</span><button class="fdel" onclick="delE('${key}','${e.id}')">×</button></div></div>`).join('')}
+    ${me.map(e=>`<div class="fr"><div><span class="fn">${esc(e.n)}</span><span class="fq">${(function(){const q=e.qty,u=e.u||"";if(u.includes("ml")){if(q>=1000)return(q/1000).toFixed(1)+"L";if(q>=100)return Math.round(q/100)+"cl";return q+"ml";}return q+"g";})()}</span></div><div style="display:flex;align-items:center;gap:10px"><span class="fk">${Math.round(e.cal*e.fac)} kcal</span><span class="fp">P ${Math.round(e.p*e.fac)}g</span><button class="fdel" onclick="delE('${key}','${e.id}')">×</button></div></div>`).join('')}
     </div>`;
   });
   if(!any) h+=`<div class="empty"><div style="font-size:40px;margin-bottom:10px">🌿</div><div>Aucun aliment ajouté aujourd'hui</div></div>`;
@@ -425,7 +459,7 @@ function rPlanning(){
       <button class="btn-s" style="padding:4px 10px;font-size:11px${isO?';background:#eaf2ec;color:#4a7c59;border-color:#c8dece':''}" onclick="togPA(${mi})">${isO?'✕':'+ Ajouter'}</button></div>
     </div>
     ${its.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;background:#f0ebe0;border-radius:9px;padding:7px 11px;margin:0 14px 5px;font-size:13px">
-      <span style="color:#2c3a2c">${esc(it.n)} <span style="color:#b0b8a8">· ${it.qty}g</span></span>
+      <span style="color:#2c3a2c">${esc(it.n)} <span style="color:#b0b8a8">· ${(function(){const q=it.qty,u=it.u||"";if(u.includes("ml")){if(q>=1000)return(q/1000).toFixed(1)+"L";if(q>=100)return Math.round(q/100)+"cl";return q+"ml";}return q+"g";})()}</span></span>
       <div style="display:flex;gap:8px;align-items:center"><span style="color:#8b6914;font-size:12px">${Math.round(it.cal*it.fac)} kcal</span><button style="background:none;border:none;color:#b0b8a8;font-size:16px" onclick="delPI(${mi},'${it.id}')">×</button></div>
     </div>`).join('')}
     ${isO?`<div class="pap">
@@ -438,55 +472,107 @@ function rPlanning(){
           <input type="text" placeholder="Chercher…" value="${esc(S.psearch)}" oninput="onPS(this.value)" autocomplete="off" autocorrect="off"/>
           <div id="pdropwrap">${S.pdrop?fddrop('p',S.psearch):''}</div>
         </div>
-        <input type="number" value="${S.pqty}" min="1" style="width:68px" oninput="S.pqty=+this.value" placeholder="g"/>
-      </div>`:`<div>${S.recipes.length===0?`<div style="text-align:center;color:#b0b8a8;padding:16px;font-size:13px">Crée d'abord une recette 🍳</div>`:
-      S.recipes.map(rx=>`<div onclick="addRP(${rx.id})" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:#fff;border-radius:10px;margin-bottom:6px;font-size:13px">
-        <div><div style="color:#2c3a2c;font-weight:600">${esc(rx.name)}</div><div style="font-size:11px;color:#b0b8a8">${rx.cat}</div></div>
-        <span style="color:#8b6914">${Math.round(sum(rx.ings).cal)} kcal</span>
-      </div>`).join('')}</div>`}
+        <div style="display:flex;gap:4px">
+          <input type="number" id="pqty" value="${S.pqty}" min="1" style="width:52px;border-radius:10px 0 0 10px;border-right:none" oninput="S.pqty=+this.value" placeholder="100"/>
+          <select id="punit" onchange="S.punit=this.value" style="width:50px;border-radius:0 10px 10px 0;padding:10px 4px;font-size:13px;border-left:1px solid #e4ddd0">
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+            <option value="cl">cl</option>
+            <option value="L">L</option>
+          </select>
+        </div>
+      </div>`:`<div>`+planRecipeModeHTML()+`</div>`}
     </div>`:''}
     </div>`;
   });
 
   h+=`<div class="card" style="padding:14px"><div class="sectt">📝 Notes du jour</div>
     <textarea rows="3" style="resize:none;line-height:1.5" placeholder="Restes, courses, idées…" onblur="savPN(this.value)" onchange="savPN(this.value)">${esc(S.pn[S.pad]||'')}</textarea>
+  </div>
+
+  <!-- Auto planning -->
+  <div style="background:#eaf2ec;border:1px solid #c8dece;border-radius:16px;padding:14px;margin-top:12px">
+    <div style="font-weight:700;color:#2d4a2d;font-size:14px;margin-bottom:6px">✨ Générer la semaine automatiquement</div>
+    <div style="font-size:12px;color:#7a8a72;margin-bottom:12px">Remplit toute ta semaine avec tes recettes de façon variée et équilibrée</div>
+    <button class="btn-p" style="width:100%;font-size:14px" onclick="autoPlanning()">🎲 Générer la semaine</button>
   </div>`;
   return h;
 }
 
-function rRecipes(){
-  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div style="font-size:13px;color:#7a8a72">${S.recipes.length} recette${S.recipes.length!==1?'s':''}</div>
-    <button class="btn-p" style="font-size:13px" onclick="openRF()">+ Nouvelle recette</button>
-  </div>`;
-  if(!S.recipes.length) h+=`<div class="empty"><div style="font-size:40px;margin-bottom:10px">🍳</div><div style="color:#7a8a72;margin-bottom:4px">Aucune recette</div><div style="font-size:12px">Crée ta première recette</div></div>`;
-  RC.forEach(cat=>{
-    const cr=S.recipes.filter(rx=>rx.cat===cat);if(!cr.length)return;
-    h+=`<div class="catl">${cat}</div>`;
-    cr.forEach(rx=>{
-      const t=sum(rx.ings),op=S.openR.has(rx.id);
-      h+=`<div class="rc"><div class="rch" onclick="togR(${rx.id})">
-        <div><div style="font-weight:700;color:#2c3a2c;font-size:15px">${esc(rx.name)}</div><div style="font-size:12px;color:#b0b8a8;margin-top:2px">${rx.cat} · ${rx.ings.length} ingr.</div></div>
-        <div style="display:flex;align-items:center;gap:12px"><div style="text-align:right"><div style="font-size:15px;font-weight:800;color:#8b6914">${Math.round(t.cal)} kcal</div><div style="font-size:11px;color:#4a7c59">P: ${Math.round(t.p)}g</div></div>
-        <span style="color:#b0b8a8;font-size:18px;display:inline-block;transform:${op?'rotate(90deg)':'none'}">›</span></div>
-      </div>
-      ${op?`<div class="rb">
-        <div class="rmc">
-          <div class="rmci"><div class="rmcv" style="color:#4a7c59">${Math.round(t.p)}g</div><div class="rmcl">Protéines</div></div>
-          <div class="rmci"><div class="rmcv" style="color:#c67c3a">${Math.round(t.f)}g</div><div class="rmcl">Lipides</div></div>
-          <div class="rmci"><div class="rmcv" style="color:#8b6914">${Math.round(t.c)}g</div><div class="rmcl">Glucides</div></div>
-        </div>
-        ${rx.ings.map(ig=>`<div style="display:flex;justify-content:space-between;padding:7px 10px;background:#fff;border-radius:8px;margin-bottom:5px;font-size:13px;color:#2c3a2c">${esc(ig.n)} <span style="color:#b0b8a8">· ${ig.qty}g</span><span style="color:#8b6914">${Math.round(ig.cal*ig.fac)} kcal</span></div>`).join('')}
-        ${rx.inst?`<div style="background:#fff;border-radius:10px;padding:10px 12px;margin-top:8px;margin-bottom:12px"><div style="font-size:11px;color:#b0b8a8;margin-bottom:4px">Instructions</div><div style="font-size:13px;color:#7a8a72;line-height:1.6;white-space:pre-wrap">${esc(rx.inst)}</div></div>`:''}
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn-p" style="flex:2;font-size:13px" onclick="showATR(${rx.id})">+ Tracker</button>
-          <button class="btn-s" onclick="editR(${rx.id})">✏️</button>
-          <button class="btn-s" style="color:#c04a3a;border-color:#c04a3a" onclick="delR(${rx.id})">🗑️</button>
-        </div>
-      </div>`:''}
-      </div>`;
+function setRCat(cat){S.rcatTab=cat;r();}
+
+function recipeCardHTML(rx){
+  const t=sum(rx.ings),op=S.openR.has(rx.id);
+  const hasWhey=rx.ings.some(function(ig){return ig.n.toLowerCase().includes('whey')||ig.n.toLowerCase().includes('shake');});
+  const hasLiquid=rx.ings.some(function(ig){return ig.u&&ig.u.includes('ml');});
+  let h='<div class="rc"><div class="rch" onclick="togR('+rx.id+')">';
+  h+='<div><div style="font-weight:700;color:#2c3a2c;font-size:15px">'+esc(rx.name)+'</div>';
+  h+='<div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap"><span style="font-size:10px;color:#b0b8a8">'+rx.cat+' · '+rx.ings.length+' ingr.</span>';
+  if(hasWhey) h+='<span style="font-size:10px;background:#eaf2ec;color:#4a7c59;padding:1px 6px;border-radius:10px;font-weight:600">💪 Whey</span>';
+  if(hasLiquid) h+='<span style="font-size:10px;background:#fdf4e0;color:#8b6914;padding:1px 6px;border-radius:10px;font-weight:600">🥤 Liquide</span>';
+  h+='</div></div>';
+  h+='<div style="display:flex;align-items:center;gap:12px"><div style="text-align:right">';
+  h+='<div style="font-size:15px;font-weight:800;color:#8b6914">'+Math.round(t.cal)+' kcal</div>';
+  h+='<div style="font-size:11px;color:#4a7c59">P: '+Math.round(t.p)+'g</div></div>';
+  h+='<span style="color:#b0b8a8;font-size:18px;display:inline-block;transform:'+(op?'rotate(90deg)':'none')+'">›</span></div></div>';
+  if(op){
+    h+='<div class="rb"><div class="rmc">';
+    h+='<div class="rmci"><div class="rmcv" style="color:#4a7c59">'+Math.round(t.p)+'g</div><div class="rmcl">Protéines</div></div>';
+    h+='<div class="rmci"><div class="rmcv" style="color:#c67c3a">'+Math.round(t.f)+'g</div><div class="rmcl">Lipides</div></div>';
+    h+='<div class="rmci"><div class="rmcv" style="color:#8b6914">'+Math.round(t.c)+'g</div><div class="rmcl">Glucides</div></div>';
+    h+='</div>';
+    rx.ings.forEach(function(ig){
+      var uDisp=ig.u&&ig.u.includes('ml')?'ml':'g';
+      h+='<div style="display:flex;justify-content:space-between;padding:7px 10px;background:#fff;border-radius:8px;margin-bottom:5px;font-size:13px;color:#2c3a2c">'+esc(ig.n)+' <span style="color:#b0b8a8">· '+ig.qty+uDisp+'</span><span style="color:#8b6914">'+Math.round(ig.cal*ig.fac)+' kcal</span></div>';
     });
+    if(rx.inst) h+='<div style="background:#fff;border-radius:10px;padding:10px 12px;margin-top:8px;margin-bottom:12px"><div style="font-size:11px;color:#b0b8a8;margin-bottom:4px">📋 Instructions</div><div style="font-size:13px;color:#7a8a72;line-height:1.6;white-space:pre-wrap">'+esc(rx.inst)+'</div></div>';
+    h+='<div style="display:flex;gap:8px;margin-top:12px">';
+    h+='<button class="btn-p" style="flex:2;font-size:13px" onclick="showATR('+rx.id+')">+ Tracker</button>';
+    h+='<button class="btn-s" onclick="editR('+rx.id+')">✏️</button>';
+    h+='<button class="btn-s" style="color:#c04a3a;border-color:#c04a3a" onclick="delR('+rx.id+')">🗑️</button>';
+    h+='</div></div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function rRecipes(){
+  const allCats=['Tous',...RC];
+  const filtered = S.rcatTab==='Tous' ? S.recipes : S.recipes.filter(rx=>rx.cat===S.rcatTab);
+  
+  // Category tab icons
+  const catIcons={'Tous':'🍽️','Petit déj':'🥣','Déjeuner':'🍽️','Dîner':'🥘','Collation':'🍎','Post-sport':'💪','Autre':'✨'};
+
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div style="font-size:13px;color:#7a8a72">${filtered.length} recette${filtered.length!==1?'s':''}</div>
+    <button class="btn-p" style="font-size:13px" onclick="openRF()">+ Nouvelle</button>
+  </div>`;
+
+  // Category tabs
+  h+=`<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px">`;
+  allCats.forEach(cat=>{
+    const count = cat==='Tous' ? S.recipes.length : S.recipes.filter(r=>r.cat===cat).length;
+    if(count===0 && cat!=='Tous') return;
+    const active = S.rcatTab===cat;
+    h+=`<button onclick="setRCat('${cat}')" style="flex:0 0 auto;padding:7px 12px;border-radius:20px;font-size:12px;font-weight:700;font-family:inherit;border:none;cursor:pointer;white-space:nowrap;background:${active?'#2d4a2d':'#f0ebe0'};color:${active?'#fff':'#7a8a72'};transition:all .2s">
+      ${catIcons[cat]||'📋'} ${cat} ${count>0?`<span style="font-size:10px;opacity:0.8">(${count})</span>`:''}
+    </button>`;
   });
+  h+=`</div>`;
+
+  if(!S.recipes.length) h+=`<div class="empty"><div style="font-size:40px;margin-bottom:10px">🍳</div><div style="color:#7a8a72;margin-bottom:4px">Aucune recette</div><div style="font-size:12px">Crée ta première recette</div></div>`;
+  
+  if(S.rcatTab==='Tous'){
+    RC.forEach(cat=>{
+      const cr=filtered.filter(rx=>rx.cat===cat);if(!cr.length)return;
+      h+=`<div class="catl">${catIcons[cat]||''} ${cat}</div>`;
+      cr.forEach(rx=>{ h+=recipeCardHTML(rx); });
+    });
+    const other=filtered.filter(rx=>!RC.includes(rx.cat));
+    if(other.length){ h+=`<div class="catl">✨ Autre</div>`; other.forEach(rx=>{h+=recipeCardHTML(rx);}); }
+  } else {
+    filtered.forEach(rx=>{ h+=recipeCardHTML(rx); });
+  }
 
   // Recipe form modal
   if(S.rfopen){
@@ -502,7 +588,7 @@ function rRecipes(){
       <select style="margin-bottom:4px" onchange="S.rf.cat=this.value">${RC.map(c=>`<option value="${c}"${f.cat===c?' selected':''}>${c}</option>`).join('')}</select>
       <span class="lb">Ingrédients *</span>
       ${it.length?`<div style="margin-bottom:10px">${it.map((ig,idx)=>`<div style="display:flex;justify-content:space-between;align-items:center;background:#f0ebe0;border-radius:10px;padding:8px 12px;margin-bottom:5px;font-size:13px">
-        <span style="color:#2c3a2c">${esc(ig.n)} <span style="color:#b0b8a8">· ${ig.qty}g</span></span>
+        <span style="color:#2c3a2c">${esc(ig.n)} <span style="color:#b0b8a8">· ${(function(){const q=ig.qty,u=ig.u||"";if(u.includes("ml")){if(q>=1000)return(q/1000).toFixed(1)+"L";if(q>=100)return Math.round(q/100)+"cl";return q+"ml";}return q+"g";})()}</span></span>
         <div style="display:flex;gap:8px;align-items:center"><span style="color:#8b6914;font-size:12px">${Math.round(ig.cal*ig.fac)} kcal</span><button style="background:none;border:none;color:#b0b8a8;font-size:16px" onclick="delRI(${idx})">×</button></div>
       </div>`).join('')}
       <div style="background:#eaf2ec;border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">
@@ -591,7 +677,7 @@ function rCourses(){
         const isCk=!!ck[it.id];
         h+=`<div class="si${isCk?' ck':''}" onclick="togSI('${esc(it.id)}')">
           <div class="scb${isCk?' ck':''}">${isCk?'✓':''}</div>
-          <div style="flex:1"><span class="sn${isCk?' ck':''}">${esc(it.name)}</span>${it.qty?`<span style="font-size:12px;color:#b0b8a8;margin-left:6px">${Math.round(it.qty)}g</span>`:''}</div>
+          <div style="flex:1"><span class="sn${isCk?' ck':''}">${esc(it.name)}</span>${it.qty?`<span style="font-size:12px;color:#b0b8a8;margin-left:6px">${(function(){const q=Math.round(it.qty),u=it.u||"";if(u.includes("ml")){if(q>=1000)return(q/1000).toFixed(1)+"L";if(q>=100)return Math.round(q/100)+"cl";return q+"ml";}return q+"g";})()}</span>`:''}</div>
           ${!it.auto?`<button style="background:none;border:none;color:#b0b8a8;font-size:16px" onclick="event.stopPropagation();delSM('${it.id}')">×</button>`:`<span style="font-size:9px;color:#b0b8a8;background:#f0ebe0;padding:2px 6px;border-radius:10px">auto</span>`}
         </div>`;
       });
@@ -602,6 +688,124 @@ function rCourses(){
     h+=`<div class="empty"><div style="font-size:40px;margin-bottom:10px">🛒</div><div>Ta liste est vide</div><div style="font-size:12px;margin-top:6px">Génère-la depuis le planning ou tes recettes</div></div>`;
   }
   return h;
+}
+
+function rSport(){
+  let h=`<div style="font-weight:800;font-size:18px;color:#2c3a2c;margin-bottom:16px">📊 Évolution de la semaine</div>`;
+
+  // Calories
+  h+=`<div style="background:#fff;border:1px solid #e4ddd0;border-radius:16px;padding:16px;margin-bottom:12px">
+    <div style="font-size:12px;font-weight:700;color:#7a8a72;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">📊 Calories</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:90px">
+      ${Array.from({length:7},(_,i)=>{
+        const k=dk(i),t=sum(S.entries[k]||[]),cal=Math.round(t.cal),pct=Math.min((cal/G.cal.max)*100,100);
+        const ok=cal>=G.cal.min&&cal<=G.cal.max,over=cal>G.cal.max;
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:8px;color:#b0b8a8;text-align:center">${cal>0?cal:''}</div>
+          <div style="width:100%;background:${ok?'#4a7c59':over?'#c04a3a':cal>0?'#8b6914':'#f0ebe0'};border-radius:4px 4px 0 0;height:${pct}%;min-height:${cal>0?4:0}px;transition:height .4s"></div>
+          <div style="font-size:9px;color:${i===today?'#4a7c59':'#b0b8a8'};font-weight:${i===today?700:400}">${DS[i]}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;font-size:10px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#4a7c59;border-radius:2px;display:inline-block"></span>Objectif</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#8b6914;border-radius:2px;display:inline-block"></span>En dessous</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#c04a3a;border-radius:2px;display:inline-block"></span>Dépassé</span>
+    </div>
+    <div style="font-size:10px;color:#b0b8a8;margin-top:6px">Objectif : ${G.cal.min}–${G.cal.max} kcal/jour</div>
+  </div>`;
+
+  // Protéines
+  h+=`<div style="background:#fff;border:1px solid #e4ddd0;border-radius:16px;padding:16px;margin-bottom:12px">
+    <div style="font-size:12px;font-weight:700;color:#4a7c59;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">💪 Protéines</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:90px">
+      ${Array.from({length:7},(_,i)=>{
+        const k=dk(i),t=sum(S.entries[k]||[]),v=Math.round(t.p),pct=Math.min((v/G.pr)*100,100);
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:8px;color:#b0b8a8">${v>0?v+'g':''}</div>
+          <div style="width:100%;background:${v>=G.pr?'#4a7c59':v>0?'#8b6914':'#f0ebe0'};border-radius:4px 4px 0 0;height:${pct}%;min-height:${v>0?4:0}px;transition:height .4s"></div>
+          <div style="font-size:9px;color:${i===today?'#4a7c59':'#b0b8a8'};font-weight:${i===today?700:400}">${DS[i]}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:10px;color:#b0b8a8;margin-top:8px">Objectif : ${G.pr}g/jour</div>
+  </div>`;
+
+  // Glucides
+  h+=`<div style="background:#fff;border:1px solid #e4ddd0;border-radius:16px;padding:16px;margin-bottom:12px">
+    <div style="font-size:12px;font-weight:700;color:#8b6914;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">🍞 Glucides</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:90px">
+      ${Array.from({length:7},(_,i)=>{
+        const k=dk(i),t=sum(S.entries[k]||[]),v=Math.round(t.c),pct=Math.min((v/G.cb.max)*100,100);
+        const ok=v>=G.cb.min&&v<=G.cb.max,over=v>G.cb.max;
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:8px;color:#b0b8a8">${v>0?v+'g':''}</div>
+          <div style="width:100%;background:${ok?'#8b6914':over?'#c04a3a':v>0?'#d4a843':'#f0ebe0'};border-radius:4px 4px 0 0;height:${pct}%;min-height:${v>0?4:0}px;transition:height .4s"></div>
+          <div style="font-size:9px;color:${i===today?'#4a7c59':'#b0b8a8'};font-weight:${i===today?700:400}">${DS[i]}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:10px;color:#b0b8a8;margin-top:8px">Objectif : ${G.cb.min}–${G.cb.max}g/jour</div>
+  </div>`;
+
+  // Lipides
+  h+=`<div style="background:#fff;border:1px solid #e4ddd0;border-radius:16px;padding:16px;margin-bottom:20px">
+    <div style="font-size:12px;font-weight:700;color:#c67c3a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">🥑 Lipides</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:90px">
+      ${Array.from({length:7},(_,i)=>{
+        const k=dk(i),t=sum(S.entries[k]||[]),v=Math.round(t.f),pct=Math.min((v/G.fat.max)*100,100);
+        const ok=v>=G.fat.min&&v<=G.fat.max,over=v>G.fat.max;
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:8px;color:#b0b8a8">${v>0?v+'g':''}</div>
+          <div style="width:100%;background:${ok?'#c67c3a':over?'#c04a3a':v>0?'#e8a87c':'#f0ebe0'};border-radius:4px 4px 0 0;height:${pct}%;min-height:${v>0?4:0}px;transition:height .4s"></div>
+          <div style="font-size:9px;color:${i===today?'#4a7c59':'#b0b8a8'};font-weight:${i===today?700:400}">${DS[i]}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:10px;color:#b0b8a8;margin-top:8px">Objectif : ${G.fat.min}–${G.fat.max}g/jour</div>
+  </div>`;
+
+  return h;
+}
+
+function planRecipeModeHTML(){
+  if(S.recipes.length===0) return '<div style="text-align:center;color:#b0b8a8;padding:16px;font-size:13px">Crée d\'abord une recette 🍳</div>';
+  return planRecipeList();
+}
+
+function planRecipeList(){
+  const catIcons={'Petit déj':'🥣','Déjeuner':'🍽️','Dîner':'🥘','Collation':'🍎','Post-sport':'💪','Autre':'🍔'};
+  let out='';
+  RC.forEach(function(cat){
+    const cats=S.recipes.filter(function(rx){return rx.cat===cat;});
+    if(!cats.length)return;
+    out+='<div style="font-size:10px;color:#b0b8a8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;padding:8px 14px 4px;background:#f7f3ec">'+(catIcons[cat]||'')+' '+cat+'</div>';
+    cats.forEach(function(rx){
+      out+='<div onclick="addRP('+rx.id+')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:#fff;border-bottom:1px solid #f0ebe0"><div style="color:#2c3a2c;font-weight:600;font-size:13px">'+esc(rx.name)+'</div><span style="color:#8b6914;font-size:13px;flex-shrink:0;margin-left:8px">'+Math.round(sum(rx.ings).cal)+' kcal</span></div>';
+    });
+  });
+  return out;
+}
+
+function autoPlanning(){
+  if(!S.recipes.length){alert('Ajoute d\'abord des recettes 🍳');return;}
+  const bycat={};
+  S.recipes.forEach(r=>{if(!bycat[r.cat])bycat[r.cat]=[];bycat[r.cat].push(r);});
+  const pick=(cat)=>{const arr=bycat[cat]||[];return arr[Math.floor(Math.random()*arr.length)];};
+  const catMap=['Petit déj','Déjeuner','Collation','Dîner','Post-sport'];
+  S.pm={};
+  for(let d=0;d<6;d++){
+    catMap.forEach((cat,mi)=>{
+      const r=pick(cat);
+      if(r){S.pm[`${d}_${mi}`]=r.ings.map(ig=>({...ig,id:'p'+Date.now()+Math.random()}));}
+    });
+  }
+  [0,1,2,3].forEach(mi=>{
+    const r=pick(catMap[mi]);
+    if(r) S.pm[`6_${mi}`]=r.ings.map(ig=>({...ig,id:'p'+Date.now()+Math.random()}));
+  });
+  persist();r();
+  alert('✅ Planning généré pour toute la semaine !');
 }
 
 function rHistory(){
@@ -633,18 +837,115 @@ function setDay(i){S.day=i;r();}
 function togCr(){const k=dk(S.day);S.creatine[k]=!S.creatine[k];persist();r();}
 function onTS(v){S.tsearch=v;S.tsfood=null;S.tdrop=v.length>0;const w=document.getElementById("tdropwrap");if(w){w.innerHTML=v.length>0?fddrop("t",v):'';} }
 function selF(id,name){
-  const fd=FDB.find(f=>f.n===name);
+  const allFoods=[...S.scannedFoods,...FDB];
+  const fd=allFoods.find(f=>f.n===name);
   if(id==='t'){S.tsfood=fd;S.tsearch=name;S.tdrop=false;}
   else if(id==='p'){S.psfood=fd;S.psearch=name;S.pdrop=false;addFP();}
   else if(id==='r'){S.ringsearch=name;S.rdrop=false;addRI2(fd);}
   r();
 }
+// ─── BARCODE SCANNER ───────────────────────────────────────────────
+async function lookupBarcode(code){
+  S.scanError=null;
+  try {
+    const res = await fetch('https://world.openfoodfacts.org/api/v0/product/'+code+'.json');
+    const data = await res.json();
+    if(data.status===0||!data.product){
+      S.scanError='Produit introuvable dans la base de données 😕';
+      S.scanResult=null; r(); return;
+    }
+    const p = data.product;
+    const n100 = p.nutriments;
+    const name = p.product_name_fr || p.product_name || p.abbreviated_product_name || 'Produit scanné';
+    const cal = Math.round(n100['energy-kcal_100g']||n100['energy-kcal']||0);
+    const prot = Math.round((n100.proteins_100g||0)*10)/10;
+    const fat = Math.round((n100.fat_100g||0)*10)/10;
+    const carb = Math.round((n100.carbohydrates_100g||0)*10)/10;
+    if(!cal && !prot && !fat && !carb){
+      S.scanError='Infos nutritionnelles manquantes pour ce produit 😕';
+      S.scanResult=null; r(); return;
+    }
+    S.scanResult = {n:name, name, cal, p:prot, f:fat, c:carb, u:'100g'};
+    // Save to scanned foods memory if not already there
+    if(!S.scannedFoods.some(sf=>sf.n===name)){
+      S.scannedFoods.unshift({n:name,cal,p:prot,f:fat,c:carb,u:'100g'});
+      if(S.scannedFoods.length>100) S.scannedFoods=S.scannedFoods.slice(0,100); // max 100
+      persist();
+    }
+    S.tsearch=name; r();
+  } catch(e) {
+    S.scanError='Erreur de connexion — vérifie ton réseau 📶';
+    S.scanResult=null; r();
+  }
+}
+
+function startScan(){
+  // Create hidden file input to trigger camera on iPhone
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment'; // rear camera
+  input.style.display = 'none';
+  document.body.appendChild(input);
+
+  input.onchange = async function(){
+    const file = input.files[0];
+    if(!file){ document.body.removeChild(input); return; }
+
+    S.scanError = '🔍 Analyse du code-barre…';
+    S.scanResult = null; r();
+
+    // Use ZXing via CDN to decode barcode from image
+    try {
+      const ZXing = await import('https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/esm/index.js');
+      const reader = new ZXing.BrowserMultiFormatReader();
+      const imgUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = async function(){
+        try {
+          const result = await reader.decodeFromImageElement(img);
+          URL.revokeObjectURL(imgUrl);
+          S.scanError = null;
+          await lookupBarcode(result.getText());
+        } catch(e){
+          S.scanError = 'Code-barre non reconnu — essaie de mieux cadrer 📷';
+          S.scanResult = null; r();
+        }
+      };
+      img.src = imgUrl;
+    } catch(e){
+      // Fallback: manual barcode entry
+      S.scanError = null;
+      const code = prompt('Entrez le code-barre du produit (chiffres sous le code) :');
+      if(code && code.trim()) await lookupBarcode(code.trim());
+      else { S.scanError = null; r(); }
+    }
+    document.body.removeChild(input);
+  };
+  input.click();
+}
+
 function addFT(){
-  if(!S.tsfood)return;
-  const k=dk(S.day),f=S.tsfood,qty=+document.getElementById('tqty')?.value||S.tqty||100,meal=+document.getElementById('tmeal')?.value??S.tmeal;
+  const k=dk(S.day);
+  let foodData = S.tsfood;
+
+  // Use scan result if available
+  if(S.scanResult && !S.tsfood){
+    foodData = S.scanResult;
+  }
+  if(!foodData) return;
+
+  const rawQty=+document.getElementById('tqty')?.value||S.tqty||100;
+  const unit=document.getElementById('tunit')?.value||S.tunit||'g';
+  const meal=+document.getElementById('tmeal')?.value;
+  let qtyMl=rawQty;
+  if(unit==='cl') qtyMl=rawQty*10;
+  else if(unit==='L') qtyMl=rawQty*1000;
+  const fac=qtyMl/100;
   if(!S.entries[k])S.entries[k]=[];
-  S.entries[k].push({id:'e'+Date.now(),n:f.n,cal:f.cal,p:f.p,f:f.f,c:f.c,fac:qty/100,qty,meal});
-  S.tsfood=null;S.tsearch='';S.tqty=100;S.tdrop=false;persist();r();
+  S.entries[k].push({id:'e'+Date.now(),n:foodData.n||foodData.name,cal:foodData.cal,p:foodData.p,f:foodData.f,c:foodData.c,fac,qty:qtyMl,u:unit==='g'?'100g':'100ml',meal});
+  S.tsfood=null;S.scanResult=null;S.scanError=null;S.tsearch='';S.tqty=100;S.tunit='g';S.tdrop=false;
+  persist();r();
 }
 function delE(k,id){S.entries[k]=(S.entries[k]||[]).filter(e=>e.id!==id);persist();r();}
 function setPD(i){S.pad=i;S.pam=null;r();}
@@ -653,9 +954,14 @@ function setPM2(m){S.pmode=m;r();}
 function onPS(v){S.psearch=v;S.pdrop=v.length>0;const w=document.getElementById("pdropwrap");if(w){w.innerHTML=v.length>0?fddrop("p",v):'';} }
 function addFP(){
   const f=S.psfood;if(!f||S.pam===null)return;
-  const k=`${S.pad}_${S.pam}`,qty=S.pqty||100;
+  const k=`${S.pad}_${S.pam}`;
+  const rawQty=S.pqty||100;
+  const punit=document.getElementById('punit')?.value||'g';
+  let qtyMl=rawQty;
+  if(punit==='cl') qtyMl=rawQty*10;
+  else if(punit==='L') qtyMl=rawQty*1000;
   if(!S.pm[k])S.pm[k]=[];
-  S.pm[k].push({id:'p'+Date.now(),n:f.n,cal:f.cal,p:f.p,f:f.f,c:f.c,fac:qty/100,qty});
+  S.pm[k].push({id:'p'+Date.now(),n:f.n,cal:f.cal,p:f.p,f:f.f,c:f.c,fac:qtyMl/100,qty:qtyMl,u:punit==='g'?'100g':'100ml'});
   S.psearch='';S.pdrop=false;S.psfood=null;S.pam=null;persist();r();
 }
 function addRP(rid){
@@ -817,26 +1123,365 @@ const DEFAULT_RECIPES = [
     {n:"Beurre de cacahuète",cal:588,p:25,f:50,c:20,fac:0.3,qty:30},
   ]},
   {id:5001,name:"Post-Sport — Shake Banane Lait",cat:"Post-sport",inst:"Mixe ou mélange directement dans un shaker. À boire dans les 30 min après le sport.",ings:[
-    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30},
-    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100},
-    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200},
+    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30,u:"1 dose"},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100,u:"100g"},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200,u:"100ml"},
+  ]},
+  // 🍔 FAST FOOD
+  {id:6001,name:"🍔 Big Mac (McDo)",cat:"Autre",inst:"Estimation basée sur les valeurs officielles McDonald's. Ajoute des frites si tu en prends.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.9,qty:90,u:"100g"},
+    {n:"Steak haché 15%",cal:198,p:17,f:14,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Fromage frais",cal:133,p:5.7,f:11,c:3.4,fac:0.2,qty:20,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:0.3,qty:30,u:"100g"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:0.3,qty:30,u:"100g"},
+  ]},
+  {id:6002,name:"🍟 Grandes Frites (McDo)",cat:"Autre",inst:"Portion grande frites McDonald's — estimation.",ings:[
+    {n:"Pomme de terre cuite",cal:77,p:2,f:0.1,c:17,fac:1.7,qty:170,u:"100g"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.15,qty:15,u:"100ml"},
+  ]},
+  {id:6003,name:"🍗 Bucket KFC 3 pièces",cat:"Autre",inst:"3 morceaux de poulet pané KFC — estimation.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:2.4,qty:240,u:"100g"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.2,qty:20,u:"100ml"},
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.6,qty:60,u:"100g"},
+  ]},
+  {id:6004,name:"🌯 Wrap Poulet Grillé (McDo/KFC)",cat:"Autre",inst:"Wrap poulet grillé — plus sain que le menu classique.",ings:[
+    {n:"Tortilla blé",cal:306,p:8.3,f:7.8,c:49,fac:0.6,qty:60,u:"100g"},
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.2,qty:120,u:"100g"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:0.5,qty:50,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.2,qty:20,u:"100g"},
+  ]},
+  {id:6005,name:"🍕 Pizza Margherita 2 parts",cat:"Autre",inst:"2 parts de pizza margherita taille standard (environ 300g).",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:1.5,qty:150,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:0.8,qty:80,u:"100g"},
+    {n:"Mozzarella",cal:254,p:18,f:20,c:2.2,fac:0.8,qty:80,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:6006,name:"🍕 Pizza Pepperoni 2 parts",cat:"Autre",inst:"2 parts de pizza pepperoni taille standard.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:1.5,qty:150,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:0.8,qty:80,u:"100g"},
+    {n:"Mozzarella",cal:254,p:18,f:20,c:2.2,fac:0.8,qty:80,u:"100g"},
+    {n:"Bacon",cal:541,p:37,f:42,c:1.4,fac:0.5,qty:50,u:"100g"},
+  ]},
+  {id:6007,name:"🥙 Kebab Complet",cat:"Autre",inst:"Kebab viande d'agneau/bœuf avec pain, sauce et légumes — estimation.",ings:[
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:1.5,qty:150,u:"100g"},
+    {n:"Steak haché 15%",cal:198,p:17,f:14,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:0.5,qty:50,u:"100g"},
+    {n:"Tomate",cal:18,p:0.9,f:0.2,c:3.9,fac:0.5,qty:50,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.3,qty:30,u:"100g"},
+  ]},
+  {id:6008,name:"🌮 Tacos Fast Food (3 pièces)",cat:"Autre",inst:"3 tacos viande fromage sauce — style O'Tacos ou similar.",ings:[
+    {n:"Tortilla blé",cal:306,p:8.3,f:7.8,c:49,fac:1.8,qty:180,u:"100g"},
+    {n:"Steak haché 5%",cal:135,p:21,f:5,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.6,qty:60,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:0.5,qty:50,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.2,qty:20,u:"100g"},
+  ]},
+  {id:6009,name:"🍔 Double Cheeseburger",cat:"Autre",inst:"Double cheeseburger type McDo/BK — estimation.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.8,qty:80,u:"100g"},
+    {n:"Steak haché 15%",cal:198,p:17,f:14,c:0,fac:1.6,qty:160,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.4,qty:40,u:"100g"},
+    {n:"Ketchup",cal:101,p:1.7,f:0.1,c:25,fac:0.3,qty:30,u:"100g"},
+    {n:"Moutarde",cal:66,p:4.4,f:3.3,c:8,fac:0.1,qty:10,u:"100g"},
+  ]},
+  {id:6010,name:"🍗 Nuggets x10 (McDo)",cat:"Autre",inst:"10 nuggets McDonald's — estimation officielle.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.5,qty:50,u:"100g"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.15,qty:15,u:"100ml"},
+  ]},
+  {id:6011,name:"🥗 Salade César Poulet (fast food)",cat:"Autre",inst:"Salade César avec poulet grillé — option plus légère au fast food.",ings:[
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:1.5,qty:150,u:"100g"},
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.2,qty:120,u:"100g"},
+    {n:"Parmesan",cal:431,p:38,f:29,c:3.2,fac:0.2,qty:20,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.3,qty:30,u:"100g"},
+  ]},
+  {id:6012,name:"🍜 Pâtes Bolognaise (chez un ami)",cat:"Autre",inst:"Estimation pâtes bolognaise maison chez un ami — portion classique.",ings:[
+    {n:"Pâtes blanches cuites",cal:158,p:5.8,f:0.9,c:31,fac:3,qty:300,u:"100g"},
+    {n:"Steak haché 5%",cal:135,p:21,f:5,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:1,qty:100,u:"100g"},
+    {n:"Parmesan",cal:431,p:38,f:29,c:3.2,fac:0.2,qty:20,u:"100g"},
+  ]},
+  {id:6013,name:"🍚 Riz Sauté (chez un ami)",cat:"Autre",inst:"Riz sauté avec œufs et légumes — plat courant chez des amis.",ings:[
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:3,qty:300,u:"100g"},
+    {n:"Œuf entier",cal:78,p:6,f:5,c:0.6,fac:2,qty:2,u:"1 œuf"},
+    {n:"Sauce soja",cal:53,p:8.1,f:0,c:4.9,fac:0.2,qty:20,u:"100ml"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:6014,name:"🍣 Sushi Box 12 pièces",cat:"Autre",inst:"Box sushi variée 12 pièces — estimation livraison ou restaurant.",ings:[
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2,qty:200,u:"100g"},
+    {n:"Saumon pavé",cal:208,p:20,f:13,c:0,fac:1.2,qty:120,u:"100g"},
+    {n:"Sauce soja",cal:53,p:8.1,f:0,c:4.9,fac:0.2,qty:20,u:"100ml"},
+  ]},
+  {id:6015,name:"🥙 Sandwich Club (boulangerie)",cat:"Autre",inst:"Sandwich club poulet jambon à la boulangerie — estimation.",ings:[
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:1.2,qty:120,u:"100g"},
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:0.8,qty:80,u:"100g"},
+    {n:"Jambon blanc",cal:97,p:16,f:3,c:1,fac:0.5,qty:50,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.3,qty:30,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.2,qty:20,u:"100g"},
+  ]},
+  {id:6016,name:"🍩 Menu McDo Complet (burger+frites+soda)",cat:"Autre",inst:"Menu complet McDo — burger classique, grandes frites, soda sucré.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.9,qty:90,u:"100g"},
+    {n:"Steak haché 15%",cal:198,p:17,f:14,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Pomme de terre cuite",cal:77,p:2,f:0.1,c:17,fac:1.7,qty:170,u:"100g"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.15,qty:15,u:"100ml"},
+    {n:"Sucre blanc",cal:387,p:0,f:0,c:100,fac:0.4,qty:40,u:"100g"},
+  ]},
+  {id:6017,name:"🍔 Whopper (Burger King)",cat:"Autre",inst:"Whopper BK avec sauce, salade, tomate — estimation officielle.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:1,qty:100,u:"100g"},
+    {n:"Steak haché 15%",cal:198,p:17,f:14,c:0,fac:2,qty:200,u:"100g"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:0.5,qty:50,u:"100g"},
+    {n:"Tomate",cal:18,p:0.9,f:0.2,c:3.9,fac:0.5,qty:50,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.3,qty:30,u:"100g"},
+    {n:"Ketchup",cal:101,p:1.7,f:0.1,c:25,fac:0.2,qty:20,u:"100g"},
+  ]},
+  {id:6018,name:"🍔 Double Whopper (Burger King)",cat:"Autre",inst:"Double Whopper BK — gros repas calorique.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:1,qty:100,u:"100g"},
+    {n:"Steak haché 15%",cal:198,p:17,f:14,c:0,fac:3.2,qty:320,u:"100g"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:0.5,qty:50,u:"100g"},
+    {n:"Tomate",cal:18,p:0.9,f:0.2,c:3.9,fac:0.5,qty:50,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.4,qty:40,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.4,qty:40,u:"100g"},
+  ]},
+  {id:6019,name:"🍗 Chicken Burger BK",cat:"Autre",inst:"Burger poulet Burger King — estimation.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.9,qty:90,u:"100g"},
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.6,qty:160,u:"100g"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:0.4,qty:40,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.25,qty:25,u:"100g"},
+  ]},
+  {id:6020,name:"🍟 Menu Whopper Complet BK",cat:"Autre",inst:"Menu Whopper + frites moyennes + soda — estimation.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:1,qty:100,u:"100g"},
+    {n:"Steak haché 15%",cal:198,p:17,f:14,c:0,fac:2,qty:200,u:"100g"},
+    {n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6,fac:0.3,qty:30,u:"100g"},
+    {n:"Pomme de terre cuite",cal:77,p:2,f:0.1,c:17,fac:1.5,qty:150,u:"100g"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.12,qty:12,u:"100ml"},
+    {n:"Sucre blanc",cal:387,p:0,f:0,c:100,fac:0.4,qty:40,u:"100g"},
+  ]},
+  {id:6021,name:"🧅 Onion Rings BK (portion)",cat:"Autre",inst:"Portion d'onion rings Burger King — estimation.",ings:[
+    {n:"Oignon",cal:40,p:1.1,f:0.1,c:9.3,fac:1.2,qty:120,u:"100g"},
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.4,qty:40,u:"100g"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.12,qty:12,u:"100ml"},
+  ]},
+  {id:1004,name:"PD4 — Overnight Oats Mangue Coco",cat:"Petit déj",inst:"Mélange avoine, lait et skyr la veille. Ajoute la mangue coupée le matin.",ings:[
+    {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.8,qty:80,u:"100g"},
+    {n:"Lait végétal amande",cal:24,p:0.8,f:1.5,c:1.8,fac:2,qty:200,u:"100ml"},
+    {n:"Skyr nature",cal:63,p:11,f:0.2,c:4,fac:1,qty:100,u:"100g"},
+    {n:"Mangue",cal:60,p:0.8,f:0.4,c:15,fac:1,qty:100,u:"100g"},
+    {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.1,qty:10,u:"100g"},
+  ]},
+  {id:1005,name:"PD5 — Overnight Oats Choco Whey 💪",cat:"Petit déj",inst:"Mélange tout la veille. La whey donne un goût protéiné. Ajoute la banane le matin.",ings:[
+    {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.8,qty:80,u:"100g"},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200,u:"100ml"},
+    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30,u:"1 dose"},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100,u:"100g"},
+  ]},
+  // DEJEUNER EXTRA
+  {id:2004,name:"DJ4 — Bowl Dinde Quinoa",cat:"Déjeuner",inst:"Cuis le quinoa 15 min. Poêle la dinde avec un filet d'huile. Assemble dans un bowl.",ings:[
+    {n:"Dinde émincée",cal:104,p:22,f:1.5,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Quinoa cuit",cal:120,p:4.4,f:1.9,c:22,fac:2.5,qty:250,u:"100g"},
+    {n:"Poivron rouge",cal:31,p:1,f:0.3,c:6,fac:1,qty:100,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:2005,name:"DJ5 — Bowl Riz Thon Avocat",cat:"Déjeuner",inst:"Cuis le riz. Égoutte le thon. Coupe l'avocat. Mélange tout dans un bowl avec sauce soja.",ings:[
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2.5,qty:250,u:"100g"},
+    {n:"Thon naturel",cal:116,p:26,f:1,c:0,fac:1.6,qty:160,u:"100g"},
+    {n:"Avocat",cal:160,p:2,f:15,c:9,fac:0.5,qty:50,u:"100g"},
+    {n:"Sauce soja",cal:53,p:8.1,f:0,c:4.9,fac:0.15,qty:15,u:"100ml"},
+  ]},
+  // DINER EXTRA
+  {id:3004,name:"DI4 — Poulet Boulgour Tomates",cat:"Dîner",inst:"Cuis le boulgour 12 min. Poêle le poulet avec les tomates coupées. Sers ensemble.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Boulgour cuit",cal:83,p:3.1,f:0.2,c:19,fac:2.5,qty:250,u:"100g"},
+    {n:"Tomate",cal:18,p:0.9,f:0.2,c:3.9,fac:1.5,qty:150,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:3005,name:"DI5 — Steak Haché Couscous",cat:"Dîner",inst:"Prépare le couscous avec de l'eau bouillante. Cuis le steak 3 min de chaque côté. Sers avec la sauce tomate.",ings:[
+    {n:"Steak haché 5%",cal:135,p:21,f:5,c:0,fac:2,qty:200,u:"100g"},
+    {n:"Couscous cuit",cal:112,p:3.8,f:0.2,c:23,fac:2.5,qty:250,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:1,qty:100,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  // POST-SPORT EXTRA
+  {id:5002,name:"Post-Sport — Shake Avoine Whey 💪",cat:"Post-sport",inst:"Mixe tout dans un shaker. L'avoine apporte des glucides pour la récupération.",ings:[
+    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30,u:"1 dose"},
+    {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.4,qty:40,u:"100g"},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200,u:"100ml"},
+    {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.1,qty:10,u:"100g"},
+  ]},
+  {id:5003,name:"Post-Sport — Yaourt Grec Whey Banane 💪",cat:"Post-sport",inst:"Mélange le yaourt avec la whey. Ajoute la banane coupée. Simple et efficace.",ings:[
+    {n:"Yaourt grec 0%",cal:57,p:10,f:0.2,c:3.5,fac:2,qty:200,u:"100g"},
+    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30,u:"1 dose"},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100,u:"100g"},
+  ]},
+
+  // ── PETITS DÉJEUNERS EXTRA ─────────────────────────────────────
+  {id:1006,name:"PD6 — Œufs Brouillés Jambon Toast",cat:"Petit déj",inst:"Bats les œufs avec une pincée de sel. Fais-les cuire à feu doux en remuant. Grille le pain. Pose le jambon par-dessus.",ings:[
+    {n:"Œuf entier",cal:78,p:6,f:5,c:0.6,fac:3,qty:3,u:"1 œuf"},
+    {n:"Jambon blanc",cal:97,p:16,f:3,c:1,fac:0.8,qty:80,u:"100g"},
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:0.8,qty:80,u:"100g"},
+    {n:"Beurre",cal:717,p:0.9,f:81,c:0.1,fac:0.1,qty:10,u:"100g"},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:0.5,qty:50,u:"100ml"},
+  ]},
+  {id:1007,name:"PD7 — Pancakes Protéinés Banane",cat:"Petit déj",inst:"Mixe avoine, œufs, banane et fromage blanc. Cuis des petites galettes à la poêle. Prépare la pâte la veille, cuis le matin.",ings:[
+    {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.6,qty:60,u:"100g"},
+    {n:"Œuf entier",cal:78,p:6,f:5,c:0.6,fac:2,qty:2,u:"1 œuf"},
+    {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100,u:"100g"},
+    {n:"Fromage blanc 0%",cal:45,p:8,f:0.1,c:4,fac:1,qty:100,u:"100g"},
+    {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.1,qty:10,u:"100g"},
+  ]},
+  {id:1008,name:"PD8 — Bol Riz Œuf Soja (style asiatique)",cat:"Petit déj",inst:"Cuis le riz la veille. Le matin, réchauffe-le avec un œuf au plat et un filet de sauce soja.",ings:[
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2,qty:200,u:"100g"},
+    {n:"Œuf entier",cal:78,p:6,f:5,c:0.6,fac:2,qty:2,u:"1 œuf"},
+    {n:"Sauce soja",cal:53,p:8.1,f:0,c:4.9,fac:0.15,qty:15,u:"100ml"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.05,qty:5,u:"100ml"},
+  ]},
+  {id:1009,name:"PD9 — Sandwich Jambon Fromage",cat:"Petit déj",inst:"Prépare le sandwich la veille et garde-le au frigo. Rapide et pratique.",ings:[
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:1.2,qty:120,u:"100g"},
+    {n:"Jambon blanc",cal:97,p:16,f:3,c:1,fac:1,qty:100,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.4,qty:40,u:"100g"},
+    {n:"Beurre",cal:717,p:0.9,f:81,c:0.1,fac:0.1,qty:10,u:"100g"},
+  ]},
+  {id:1010,name:"PD10 — Bowl Yaourt Granola Fruits",cat:"Petit déj",inst:"Verse le yaourt dans un bol. Ajoute les fruits rouges, le granola et un filet de miel. Prépare les fruits la veille.",ings:[
+    {n:"Yaourt grec 0%",cal:57,p:10,f:0.2,c:3.5,fac:2,qty:200,u:"100g"},
+    {n:"Müesli",cal:360,p:10,f:6.5,c:66,fac:0.5,qty:50,u:"100g"},
+    {n:"Fraises",cal:32,p:0.7,f:0.3,c:7.7,fac:1,qty:100,u:"100g"},
+    {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.1,qty:10,u:"100g"},
+  ]},
+  {id:1011,name:"PD11 — Pain Perdu Protéiné",cat:"Petit déj",inst:"Trempe le pain dans le mélange œuf/lait. Cuis à la poêle 3 min de chaque côté. Rapide et délicieux.",ings:[
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:1.5,qty:150,u:"100g"},
+    {n:"Œuf entier",cal:78,p:6,f:5,c:0.6,fac:3,qty:3,u:"1 œuf"},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:1,qty:100,u:"100ml"},
+    {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.15,qty:15,u:"100g"},
+    {n:"Beurre",cal:717,p:0.9,f:81,c:0.1,fac:0.1,qty:10,u:"100g"},
+  ]},
+
+  // ── DÉJEUNERS EXTRA ────────────────────────────────────────────
+  {id:2006,name:"DJ6 — Bowl Poulet Quinoa Avocat",cat:"Déjeuner",inst:"Cuis le quinoa 15 min. Grille le poulet. Coupe l'avocat. Assemble en bowl avec un filet d'huile d'olive.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Quinoa cuit",cal:120,p:4.4,f:1.9,c:22,fac:2.5,qty:250,u:"100g"},
+    {n:"Avocat",cal:160,p:2,f:15,c:9,fac:0.5,qty:50,u:"100g"},
+    {n:"Tomate",cal:18,p:0.9,f:0.2,c:3.9,fac:1,qty:100,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:2007,name:"DJ7 — Pâtes Jambon Crème",cat:"Déjeuner",inst:"Cuis les pâtes. Coupe le jambon en dés. Mélange avec la crème fraîche chauffée à la poêle. Ajoute le parmesan.",ings:[
+    {n:"Pâtes blanches cuites",cal:158,p:5.8,f:0.9,c:31,fac:3,qty:300,u:"100g"},
+    {n:"Jambon blanc",cal:97,p:16,f:3,c:1,fac:1.2,qty:120,u:"100g"},
+    {n:"Crème fraîche 30%",cal:300,p:2.3,f:30,c:3.1,fac:0.5,qty:50,u:"100g"},
+    {n:"Parmesan",cal:431,p:38,f:29,c:3.2,fac:0.2,qty:20,u:"100g"},
+  ]},
+  {id:2008,name:"DJ8 — Riz Poulet Poivron Carotte",cat:"Déjeuner",inst:"Poêle le poulet avec les légumes coupés en dés. Cuis le riz. Mélange tout avec sauce soja.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2.5,qty:250,u:"100g"},
+    {n:"Poivron rouge",cal:31,p:1,f:0.3,c:6,fac:1,qty:100,u:"100g"},
+    {n:"Carottes",cal:41,p:0.9,f:0.2,c:10,fac:1,qty:100,u:"100g"},
+    {n:"Sauce soja",cal:53,p:8.1,f:0,c:4.9,fac:0.2,qty:20,u:"100ml"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:2009,name:"DJ9 — Sandwich Poulet Avocat Salade",cat:"Déjeuner",inst:"Grille le poulet et laisse refroidir. Garnis le pain avec l'avocat écrasé, la salade et le poulet. Prépare la veille.",ings:[
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:1.5,qty:150,u:"100g"},
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Avocat",cal:160,p:2,f:15,c:9,fac:0.5,qty:50,u:"100g"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:0.5,qty:50,u:"100g"},
+    {n:"Tomate",cal:18,p:0.9,f:0.2,c:3.9,fac:0.5,qty:50,u:"100g"},
+  ]},
+  {id:2010,name:"DJ10 — Steak Riz Petit Pois",cat:"Déjeuner",inst:"Cuis le riz. Poêle le steak 3 min de chaque côté. Réchauffe les petit pois. Sers avec un filet d'huile d'olive.",ings:[
+    {n:"Bœuf rumsteak",cal:158,p:28,f:5,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2.5,qty:250,u:"100g"},
+    {n:"Petit pois",cal:84,p:5.4,f:0.4,c:15,fac:1,qty:100,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:2011,name:"DJ11 — Omelette Jambon Fromage",cat:"Déjeuner",inst:"Bats les œufs. Verse dans la poêle avec le jambon. Ajoute le fromage râpé avant de plier. Sers avec le pain.",ings:[
+    {n:"Œuf entier",cal:78,p:6,f:5,c:0.6,fac:4,qty:4,u:"1 œuf"},
+    {n:"Jambon blanc",cal:97,p:16,f:3,c:1,fac:1,qty:100,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.5,qty:50,u:"100g"},
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:0.8,qty:80,u:"100g"},
+    {n:"Beurre",cal:717,p:0.9,f:81,c:0.1,fac:0.1,qty:10,u:"100g"},
+  ]},
+  {id:2012,name:"DJ12 — Bowl Bœuf Patate Douce Haricots",cat:"Déjeuner",inst:"Cuis la patate douce au micro-ondes 8 min. Poêle le bœuf. Ajoute les haricots verts cuits. Assemble en bowl.",ings:[
+    {n:"Bœuf rumsteak",cal:158,p:28,f:5,c:0,fac:1.6,qty:160,u:"100g"},
+    {n:"Patate douce cuite",cal:86,p:1.6,f:0.1,c:20,fac:2,qty:200,u:"100g"},
+    {n:"Haricots verts",cal:31,p:1.9,f:0.4,c:5.8,fac:1.5,qty:150,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+
+  // ── DÎNERS EXTRA ───────────────────────────────────────────────
+  {id:3006,name:"DI6 — Poulet Sauté Riz Carotte",cat:"Dîner",inst:"Coupe le poulet en dés. Poêle avec les carottes en rondelles et l'ail. Sers sur le riz.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:2,qty:200,u:"100g"},
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2.5,qty:250,u:"100g"},
+    {n:"Carottes",cal:41,p:0.9,f:0.2,c:10,fac:1.5,qty:150,u:"100g"},
+    {n:"Ail",cal:149,p:6.4,f:0.5,c:33,fac:0.1,qty:10,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:3007,name:"DI7 — Steak Pommes de Terre Salade",cat:"Dîner",inst:"Cuis les pommes de terre à l'eau ou au four 25 min. Poêle le steak. Sers avec la salade assaisonnée.",ings:[
+    {n:"Bœuf rumsteak",cal:158,p:28,f:5,c:0,fac:2,qty:200,u:"100g"},
+    {n:"Pomme de terre cuite",cal:77,p:2,f:0.1,c:17,fac:2.5,qty:250,u:"100g"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:1,qty:100,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.15,qty:15,u:"100ml"},
+  ]},
+  {id:3008,name:"DI8 — Pâtes Bolognaise Maison",cat:"Dîner",inst:"Poêle le bœuf haché avec la sauce tomate 15 min. Cuis les pâtes. Mélange et ajoute le parmesan.",ings:[
+    {n:"Pâtes blanches cuites",cal:158,p:5.8,f:0.9,c:31,fac:3,qty:300,u:"100g"},
+    {n:"Steak haché 5%",cal:135,p:21,f:5,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:1.5,qty:150,u:"100g"},
+    {n:"Parmesan",cal:431,p:38,f:29,c:3.2,fac:0.2,qty:20,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:3009,name:"DI9 — Poulet Rôti Patate Douce Poivron",cat:"Dîner",inst:"Coupe tout en morceaux. Mets dans un plat avec huile et sel. Cuis au four 30 min à 200°C.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:2,qty:200,u:"100g"},
+    {n:"Patate douce cuite",cal:86,p:1.6,f:0.1,c:20,fac:2,qty:200,u:"100g"},
+    {n:"Poivron rouge",cal:31,p:1,f:0.3,c:6,fac:1.5,qty:150,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.15,qty:15,u:"100ml"},
+  ]},
+  {id:3010,name:"DI10 — Œufs Cocotte Jambon",cat:"Dîner",inst:"Mets le jambon dans des ramequins. Casse 2 œufs par ramequin. Ajoute la crème. Cuis au four 12 min à 180°C.",ings:[
+    {n:"Œuf entier",cal:78,p:6,f:5,c:0.6,fac:4,qty:4,u:"1 œuf"},
+    {n:"Jambon blanc",cal:97,p:16,f:3,c:1,fac:1.2,qty:120,u:"100g"},
+    {n:"Crème fraîche 30%",cal:300,p:2.3,f:30,c:3.1,fac:0.4,qty:40,u:"100g"},
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:0.8,qty:80,u:"100g"},
+  ]},
+  {id:3011,name:"DI11 — Riz Sauté Bœuf Légumes",cat:"Dîner",inst:"Poêle le bœuf haché. Ajoute les légumes coupés. Ajoute le riz cuit froid. Mélange avec sauce soja.",ings:[
+    {n:"Steak haché 5%",cal:135,p:21,f:5,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2.5,qty:250,u:"100g"},
+    {n:"Poivron rouge",cal:31,p:1,f:0.3,c:6,fac:1,qty:100,u:"100g"},
+    {n:"Carottes",cal:41,p:0.9,f:0.2,c:10,fac:1,qty:100,u:"100g"},
+    {n:"Sauce soja",cal:53,p:8.1,f:0,c:4.9,fac:0.2,qty:20,u:"100ml"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:3012,name:"DI12 — Quinoa Poulet Tomate Avocat",cat:"Dîner",inst:"Cuis le quinoa. Grille le poulet. Coupe tomate et avocat. Assemble avec un filet d'huile d'olive.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Quinoa cuit",cal:120,p:4.4,f:1.9,c:22,fac:2.5,qty:250,u:"100g"},
+    {n:"Tomate",cal:18,p:0.9,f:0.2,c:3.9,fac:1,qty:100,u:"100g"},
+    {n:"Avocat",cal:160,p:2,f:15,c:9,fac:0.5,qty:50,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:3013,name:"DI13 — Pâtes Poulet Tomate Basilic",cat:"Dîner",inst:"Cuis les pâtes. Poêle le poulet avec la sauce tomate 10 min. Mélange et ajoute le parmesan.",ings:[
+    {n:"Pâtes blanches cuites",cal:158,p:5.8,f:0.9,c:31,fac:3,qty:300,u:"100g"},
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:1.5,qty:150,u:"100g"},
+    {n:"Parmesan",cal:431,p:38,f:29,c:3.2,fac:0.2,qty:20,u:"100g"},
   ]},
 ];
 
 // ─── INIT ──────────────────────────────────────────────────────────
 load(); // load local first for instant display
+
+// Merge default recipes - add any missing ones by id
+function mergeDefaultRecipes(){
+  const existingIds = new Set(S.recipes.map(r=>r.id));
+  const missing = DEFAULT_RECIPES.filter(r=>!existingIds.has(r.id));
+  if(missing.length > 0){
+    S.recipes = [...S.recipes, ...missing];
+    persist();
+  }
+}
+
 if(!localStorage.getItem('nm_recipes')){
   S.recipes = DEFAULT_RECIPES;
   persist();
+} else {
+  mergeDefaultRecipes();
 }
 r(); // render immediately with local data
 
 // Then sync from cloud and re-render
 sbLoad().then(()=>{
-  if(!localStorage.getItem('nm_recipes')){
-    S.recipes = DEFAULT_RECIPES;
-    persist();
-  }
+  mergeDefaultRecipes();
   r();
 });
 
