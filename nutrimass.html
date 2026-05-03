@@ -1260,6 +1260,64 @@ const DEFAULT_RECIPES = [
     {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.4,qty:40,u:"100g"},
     {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.12,qty:12,u:"100ml"},
   ]},
+  // 🏫 SELF / CANTINE
+  {id:7001,name:"🏫 Self — Viande + Féculents + Légumes",cat:"Déjeuner",inst:"Repas self classique : une portion de viande, une assiette de féculents, quelques légumes. Estimation moyenne.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:2,qty:200,u:"100g"},
+    {n:"Haricots verts",cal:31,p:1.9,f:0.4,c:5.8,fac:1,qty:100,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:7002,name:"🏫 Self — Steak + Frites",cat:"Déjeuner",inst:"Steak avec frites au self — estimation portion standard.",ings:[
+    {n:"Steak haché 5%",cal:135,p:21,f:5,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Pomme de terre cuite",cal:77,p:2,f:0.1,c:17,fac:2,qty:200,u:"100g"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.15,qty:15,u:"100ml"},
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:0.5,qty:50,u:"100g"},
+  ]},
+  {id:7003,name:"🏫 Self — Pâtes / Pizza",cat:"Déjeuner",inst:"Jour pasta ou pizza au self — estimation portion généreuse.",ings:[
+    {n:"Pâtes blanches cuites",cal:158,p:5.8,f:0.9,c:31,fac:3,qty:300,u:"100g"},
+    {n:"Sauce tomate",cal:29,p:1.5,f:0.4,c:5.3,fac:1.5,qty:150,u:"100g"},
+    {n:"Parmesan",cal:431,p:38,f:29,c:3.2,fac:0.2,qty:20,u:"100g"},
+  ]},
+  {id:7004,name:"🏫 Self — Poulet Rôti + Purée",cat:"Déjeuner",inst:"Poulet rôti avec purée de pommes de terre — plat fréquent en self.",ings:[
+    {n:"Blanc de poulet cru",cal:110,p:23,f:1.2,c:0,fac:1.8,qty:180,u:"100g"},
+    {n:"Pomme de terre cuite",cal:77,p:2,f:0.1,c:17,fac:2.5,qty:250,u:"100g"},
+    {n:"Beurre",cal:717,p:0.9,f:81,c:0.1,fac:0.2,qty:20,u:"100g"},
+    {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:0.5,qty:50,u:"100ml"},
+  ]},
+  {id:7005,name:"🏫 Self — Burger Self",cat:"Déjeuner",inst:"Burger du self avec frites — estimation portion standard.",ings:[
+    {n:"Pain blanc",cal:265,p:9,f:3,c:50,fac:0.8,qty:80,u:"100g"},
+    {n:"Steak haché 15%",cal:198,p:17,f:14,c:0,fac:1.5,qty:150,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.3,qty:30,u:"100g"},
+    {n:"Pomme de terre cuite",cal:77,p:2,f:0.1,c:17,fac:1.5,qty:150,u:"100g"},
+    {n:"Huile de tournesol",cal:884,p:0,f:100,c:0,fac:0.12,qty:12,u:"100ml"},
+  ]},
+  {id:7006,name:"🏫 Self — Repas Léger (salade/soupe)",cat:"Déjeuner",inst:"Repas léger au self — salade composée ou soupe avec pain. Pense à compléter avec une collation.",ings:[
+    {n:"Salade verte",cal:15,p:1.4,f:0.2,c:2.2,fac:2,qty:200,u:"100g"},
+    {n:"Thon naturel",cal:116,p:26,f:1,c:0,fac:0.8,qty:80,u:"100g"},
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:0.6,qty:60,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:7007,name:"🏫 Self — Repas Copieux",cat:"Déjeuner",inst:"Grosse portion au self — quand t'as bien faim. Estimation généreuse.",ings:[
+    {n:"Bœuf rumsteak",cal:158,p:28,f:5,c:0,fac:2,qty:200,u:"100g"},
+    {n:"Riz basmati cuit",cal:130,p:2.7,f:0.3,c:28,fac:3,qty:300,u:"100g"},
+    {n:"Petit pois",cal:84,p:5.4,f:0.4,c:15,fac:1,qty:100,u:"100g"},
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:0.6,qty:60,u:"100g"},
+    {n:"Huile d'olive",cal:884,p:0,f:100,c:0,fac:0.1,qty:10,u:"100ml"},
+  ]},
+  {id:7008,name:"🏫 Self — Omelette + Féculents",cat:"Déjeuner",inst:"Omelette nature ou garnie avec riz ou pâtes — plat courant au self.",ings:[
+    {n:"Œuf entier",cal:78,p:6,f:5,c:0.6,fac:3,qty:3,u:"1 œuf"},
+    {n:"Pâtes blanches cuites",cal:158,p:5.8,f:0.9,c:31,fac:2,qty:200,u:"100g"},
+    {n:"Beurre",cal:717,p:0.9,f:81,c:0.1,fac:0.1,qty:10,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.3,qty:30,u:"100g"},
+  ]},
+  {id:7009,name:"🏫 Self — Sandwich + Fruit + Yaourt",cat:"Déjeuner",inst:"Formule sandwich au self — sandwich, fruit et yaourt. Pense à rajouter une barre protéinée.",ings:[
+    {n:"Pain complet",cal:247,p:13,f:4.2,c:41,fac:1.2,qty:120,u:"100g"},
+    {n:"Jambon blanc",cal:97,p:16,f:3,c:1,fac:0.8,qty:80,u:"100g"},
+    {n:"Emmental",cal:380,p:28,f:29,c:0,fac:0.3,qty:30,u:"100g"},
+    {n:"Yaourt nature",cal:61,p:3.8,f:3.2,c:4.7,fac:1,qty:100,u:"100g"},
+    {n:"Pomme",cal:52,p:0.3,f:0.2,c:14,fac:1,qty:100,u:"100g"},
+  ]},
+
   {id:1004,name:"PD4 — Overnight Oats Mangue Coco",cat:"Petit déj",inst:"Mélange avoine, lait et skyr la veille. Ajoute la mangue coupée le matin.",ings:[
     {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.8,qty:80,u:"100g"},
     {n:"Lait végétal amande",cal:24,p:0.8,f:1.5,c:1.8,fac:2,qty:200,u:"100ml"},
