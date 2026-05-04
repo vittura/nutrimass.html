@@ -231,7 +231,7 @@ const FDB=[
   {n:"Moutarde",cal:66,p:4.4,f:3.3,c:8},{n:"Mayonnaise",cal:680,p:1.1,f:75,c:0.6},
   {n:"Sauce soja",cal:53,p:8.1,f:0,c:4.9},{n:"Miel",cal:304,p:0.3,f:0,c:82},
   {n:"Chocolat noir 70%",cal:598,p:8,f:43,c:46},{n:"Sucre blanc",cal:387,p:0,f:0,c:100},
-  {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4},{n:"Gainer prise de masse",cal:380,p:30,f:4,c:58},
+  {n:"Whey Isolat Nutripure Vanille",cal:372,p:82,f:1.5,c:7.6},{n:"Gainer prise de masse",cal:380,p:30,f:4,c:58},
   {n:"Barre protéinée",cal:200,p:20,f:7,c:18},{n:"Jus d'orange frais",cal:45,p:0.7,f:0.2,c:10},
   {n:"Eau de coco",cal:19,p:0.7,f:0.2,c:3.7},{n:"Lait végétal avoine",cal:45,p:1,f:1.5,c:6.6},
   {n:"Lait végétal amande",cal:24,p:0.8,f:1.5,c:1.8},{n:"Lait de soja",cal:33,p:3.3,f:1.8,c:0.8},
@@ -297,23 +297,20 @@ async function sbLoad(){
 async function sbSave(){
   const d={};
   ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods','water'].forEach(k=>d[k]=S[k]);
-  const body=JSON.stringify({user_id:USER_ID,data:JSON.stringify(d)});
+  const body=JSON.stringify([{user_id:USER_ID,data:JSON.stringify(d)}]);
   try{
-    // Try update first
-    const upd=await fetch(`${SB_URL}/rest/v1/userdata?user_id=eq.${USER_ID}`,{
-      method:'PATCH',
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    await fetch(`${SB_URL}/rest/v1/userdata`,{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':'Bearer '+SB_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
       body
     });
-    if(upd.status===404||upd.headers.get('content-range')==='*\/0'){
-      // Insert if not exists
-      await fetch(`${SB_URL}/rest/v1/userdata`,{
-        method:'POST',
-        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-        body
-      });
-    }
   }catch(e){console.log('Offline, saved locally only');}
+  return true;
 }
 
 // ─── STORAGE ───────────────────────────────────────────────────────
@@ -949,7 +946,7 @@ function resetWater(){
 
 async function startPhotoAnalysis(){
   const input=document.createElement('input');
-  input.type='file';input.accept='image/*';input.capture='environment';
+  input.type='file';input.accept='image/*,image/heic,image/heif';input.capture='environment';
   input.style.display='none';document.body.appendChild(input);
   input.onchange=async function(){
     const file=input.files[0];
@@ -995,7 +992,7 @@ async function startPhotoAnalysis(){
       S.photoAnalyzing=false;r();
     }catch(e){
       S.photoAnalyzing=false;
-      S.photoError='Erreur d\'analyse — réessaie avec une photo plus nette 📷';
+      S.photoError='Erreur d\'analyse — réessaie ou vérifie ta connexion internet 📷';
       r();
     }
     document.body.removeChild(input);
@@ -1342,7 +1339,7 @@ const DEFAULT_RECIPES = [
     {n:"Noix",cal:654,p:15,f:65,c:14,fac:0.3,qty:30},
   ]},
   {id:4007,name:"CO7 — Shake Protéiné + Banane 🏃",cat:"Collation",inst:"Achète un shaker. Mets ta dose de whey dans le shaker le matin, ajoute de l'eau au lycée/taff. Mange une banane avec. Rapide et efficace.",ings:[
-    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30},
+    {n:"Whey Isolat Nutripure Vanille",cal:372,p:82,f:1.5,c:7.6,fac:0.3,qty:30},
     {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100},
   ]},
   {id:4008,name:"CO8 — Fromage Blanc + Galette de Riz 🏃",cat:"Collation",inst:"Un pot de fromage blanc 0% individuel (Jockey, Elle&Vire...) + 3-4 galettes de riz soufflé. Trouve ça en supermarché, rayon céréales.",ings:[
@@ -1367,7 +1364,7 @@ const DEFAULT_RECIPES = [
     {n:"Beurre de cacahuète",cal:588,p:25,f:50,c:20,fac:0.3,qty:30},
   ]},
   {id:5001,name:"Post-Sport — Shake Banane Lait",cat:"Post-sport",inst:"Mixe ou mélange directement dans un shaker. À boire dans les 30 min après le sport.",ings:[
-    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30,u:"1 dose"},
+    {n:"Whey Isolat Nutripure Vanille",cal:372,p:82,f:1.5,c:7.6,fac:0.3,qty:30,u:"100g"},
     {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100,u:"100g"},
     {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200,u:"100ml"},
   ]},
@@ -1572,7 +1569,7 @@ const DEFAULT_RECIPES = [
   {id:1005,name:"PD5 — Overnight Oats Choco Whey 💪",cat:"Petit déj",inst:"Mélange tout la veille. La whey donne un goût protéiné. Ajoute la banane le matin.",ings:[
     {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.8,qty:80,u:"100g"},
     {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200,u:"100ml"},
-    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30,u:"1 dose"},
+    {n:"Whey Isolat Nutripure Vanille",cal:372,p:82,f:1.5,c:7.6,fac:0.3,qty:30,u:"100g"},
     {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100,u:"100g"},
   ]},
   // DEJEUNER EXTRA
@@ -1603,14 +1600,14 @@ const DEFAULT_RECIPES = [
   ]},
   // POST-SPORT EXTRA
   {id:5002,name:"Post-Sport — Shake Avoine Whey 💪",cat:"Post-sport",inst:"Mixe tout dans un shaker. L'avoine apporte des glucides pour la récupération.",ings:[
-    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30,u:"1 dose"},
+    {n:"Whey Isolat Nutripure Vanille",cal:372,p:82,f:1.5,c:7.6,fac:0.3,qty:30,u:"100g"},
     {n:"Flocons d'avoine",cal:389,p:17,f:7,c:66,fac:0.4,qty:40,u:"100g"},
     {n:"Lait demi-écrémé",cal:46,p:3.2,f:1.5,c:4.7,fac:2,qty:200,u:"100ml"},
     {n:"Miel",cal:304,p:0.3,f:0,c:82,fac:0.1,qty:10,u:"100g"},
   ]},
   {id:5003,name:"Post-Sport — Yaourt Grec Whey Banane 💪",cat:"Post-sport",inst:"Mélange le yaourt avec la whey. Ajoute la banane coupée. Simple et efficace.",ings:[
     {n:"Yaourt grec 0%",cal:57,p:10,f:0.2,c:3.5,fac:2,qty:200,u:"100g"},
-    {n:"Shake protéiné whey",cal:120,p:24,f:2,c:4,fac:0.3,qty:30,u:"1 dose"},
+    {n:"Whey Isolat Nutripure Vanille",cal:372,p:82,f:1.5,c:7.6,fac:0.3,qty:30,u:"100g"},
     {n:"Banane",cal:89,p:1.1,f:0.3,c:23,fac:1,qty:100,u:"100g"},
   ]},
 
