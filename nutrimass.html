@@ -137,7 +137,10 @@ button{cursor:pointer;border:none;font-weight:700}
   <div style="max-width:600px;margin:0 auto">
     <div id="htop">
       <div><div id="asub">Prise de masse · 18 ans</div><div id="atitle">NutriMass 🌿</div></div>
-      <div id="caldisplay"><div id="calbig">0</div><div id="calsub">/ 2900–3000 kcal</div></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div id="caldisplay"><div id="calbig">0</div><div id="calsub">/ 2900–3000 kcal</div></div>
+        <button onclick="forceSave()" style="padding:5px 10px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#c8e6c0;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer">☁️ Sauvegarder</button>
+      </div>
     </div>
     <div id="tabs">
       <button class="tb on" onclick="go('tracker')">📊</button>
@@ -145,6 +148,7 @@ button{cursor:pointer;border:none;font-weight:700}
       <button class="tb" onclick="go('recipes')">🍳</button>
       <button class="tb" onclick="go('courses')">🛒</button>
       <button class="tb" onclick="go('sport')">🏋️</button>
+      <button class="tb" onclick="go('water')">💧</button>
       <button class="tb" onclick="go('history')">📈</button>
     </div>
   </div>
@@ -256,6 +260,9 @@ let S={
   tsearch:'',tqty:100,tunit:'g',tmeal:0,tsfood:null,tdrop:false,
   scanResult:null,scanError:null,
   scannedFoods:[],
+  trackerAddMode:'food',
+  water:{},
+  photoAnalyzing:false,photoError:null,photoResult:null,
   pdrop:false,rdrop:false,
   rfopen:false,rf:{id:null,name:'',cat:'Déjeuner',inst:'',ingqty:100,ings:[]},
   ringsearch:'',
@@ -278,7 +285,7 @@ async function sbLoad(){
     const rows=await res.json();
     if(rows&&rows.length>0){
       const d=JSON.parse(rows[0].data);
-      ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
+      ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods','water'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       // Also sync to localStorage
       ['entries','creatine','recipes','pm','pn','sc','sm','sr'].forEach(k=>{
         try{localStorage.setItem('nm_'+k,JSON.stringify(S[k]));}catch(e){}
@@ -289,7 +296,7 @@ async function sbLoad(){
 
 async function sbSave(){
   const d={};
-  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods'].forEach(k=>d[k]=S[k]);
+  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods','water'].forEach(k=>d[k]=S[k]);
   const body=JSON.stringify({user_id:USER_ID,data:JSON.stringify(d)});
   try{
     // Try update first
@@ -311,12 +318,12 @@ async function sbSave(){
 
 // ─── STORAGE ───────────────────────────────────────────────────────
 function load(){
-  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods'].forEach(k=>{
+  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods','water'].forEach(k=>{
     try{const v=localStorage.getItem('nm_'+k);if(v)S[k]=JSON.parse(v);}catch(e){}
   });
 }
 function persist(){
-  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods'].forEach(k=>{
+  ['entries','creatine','recipes','pm','pn','sc','sm','sr','sport','scannedFoods','water'].forEach(k=>{
     try{localStorage.setItem('nm_'+k,JSON.stringify(S[k]));}catch(e){}
   });
   sbSave(); // sync to cloud
@@ -327,7 +334,7 @@ function r(){
   const key=dk(S.day),ents=S.entries[key]||[],tot=sum(ents),isDim=S.day===6;
   document.getElementById('calbig').textContent=Math.round(tot.cal);
   // tabs
-  const tabs=['tracker','planning','recipes','courses','sport','history'];
+  const tabs=['tracker','planning','recipes','courses','sport','water','history'];
   document.querySelectorAll('.tb').forEach((b,i)=>b.classList.toggle('on',tabs[i]===S.tab));
   // day strip
   const dstrip=document.getElementById('dstrip');
@@ -348,6 +355,7 @@ function r(){
   else if(S.tab==='recipes') tc.innerHTML=rRecipes();
   else if(S.tab==='courses') tc.innerHTML=rCourses();
   else if(S.tab==='sport') tc.innerHTML=rSport();
+  else if(S.tab==='water') tc.innerHTML=rWater();
   else if(S.tab==='history') tc.innerHTML=rHistory();
 }
 
@@ -392,10 +400,11 @@ function rTracker(ents,tot,isDim,key){
   </div>
   <div class="card mb12" style="padding:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="sectt" style="margin-bottom:0">+ Ajouter un aliment</div>
-      <button onclick="startScan()" style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#eaf2ec;border:1px solid #c8dece;border-radius:10px;color:#2d4a2d;font-size:13px;font-weight:700;font-family:inherit">
-        📷 Scanner
-      </button>
+      <div class="sectt" style="margin-bottom:0">+ Ajouter</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="S.trackerAddMode=S.trackerAddMode==='recipe'?'food':'recipe';r()" style="padding:8px 12px;background:${S.trackerAddMode==='recipe'?'#2d4a2d':'#f0ebe0'};border:1px solid ${S.trackerAddMode==='recipe'?'#2d4a2d':'#e4ddd0'};border-radius:10px;color:${S.trackerAddMode==='recipe'?'#fff':'#7a8a72'};font-size:13px;font-weight:700;font-family:inherit">🍳 Recette</button>
+        <button onclick="startScan()" style="padding:8px 12px;background:#eaf2ec;border:1px solid #c8dece;border-radius:10px;color:#2d4a2d;font-size:13px;font-weight:700;font-family:inherit">📷 Scanner</button>
+      </div>
     </div>
     ${S.scanResult?`<div style="background:#eaf2ec;border:1px solid #c8dece;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
       <div><div style="font-weight:700;color:#2c3a2c;font-size:13px">${esc(S.scanResult.name)}</div>
@@ -403,25 +412,14 @@ function rTracker(ents,tot,isDim,key){
       <button onclick="S.scanResult=null;r()" style="background:none;border:none;color:#b0b8a8;font-size:18px">×</button>
     </div>`:''}
     ${S.scanError?`<div style="background:#fdecea;border:1px solid #f5c6c2;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;color:#c04a3a">${esc(S.scanError)}</div>`:''}
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <div class="dw" style="flex:1">
-        <input type="text" placeholder="Chercher un aliment…" value="${esc(S.tsearch)}" oninput="onTS(this.value)" autocomplete="off" autocorrect="off" spellcheck="false"/>
-        <div id="tdropwrap">${S.tdrop?fddrop('t',S.tsearch):''}</div>
-      </div>
-      <div style="display:flex;gap:4px">
-        <input type="number" id="tqty" value="${S.tqty}" min="1" style="width:60px;border-radius:10px 0 0 10px;border-right:none" oninput="S.tqty=+this.value" placeholder="100"/>
-        <select id="tunit" onchange="S.tunit=this.value" style="width:52px;border-radius:0 10px 10px 0;padding:10px 4px;font-size:13px;border-left:1px solid #e4ddd0">
-          <option value="g"${S.tunit==='g'?' selected':''}>g</option>
-          <option value="ml"${S.tunit==='ml'?' selected':''}>ml</option>
-          <option value="cl"${S.tunit==='cl'?' selected':''}>cl</option>
-          <option value="L"${S.tunit==='L'?' selected':''}>L</option>
-        </select>
-      </div>
-    </div>
     <select id="tmeal" style="margin-bottom:10px" onchange="S.tmeal=+this.value">
       ${MN.filter((_,i)=>!(isDim&&i===4)).map((m,i)=>'<option value="'+i+'"'+(S.tmeal===i?' selected':'')+'>'+MI[i]+' '+m+'</option>').join('')}
     </select>
-    <button class="btn-p" style="width:100%" onclick="addFT()"${!S.tsfood&&!S.scanResult?' disabled style="background:#f0ebe0;color:#b0b8a8"':''}>Ajouter</button>
+    ${S.trackerAddMode==='recipe'
+      ? '<div style="background:#f0ebe0;border-radius:12px;overflow:hidden;max-height:220px;overflow-y:auto;margin-bottom:10px">'+trackerRecipeList()+'</div>'
+      : '<div style="display:flex;gap:8px;margin-bottom:10px"><div class="dw" style="flex:1"><input type="text" placeholder="Chercher un aliment…" value="'+esc(S.tsearch)+'" oninput="onTS(this.value)" autocomplete="off" autocorrect="off" spellcheck="false"/><div id="tdropwrap">'+(S.tdrop?fddrop('t',S.tsearch):'')+'</div></div><div style="display:flex;gap:4px"><input type="number" id="tqty" value="'+S.tqty+'" min="1" style="width:60px;border-radius:10px 0 0 10px;border-right:none" oninput="S.tqty=+this.value" placeholder="100"/><select id="tunit" onchange="S.tunit=this.value" style="width:52px;border-radius:0 10px 10px 0;padding:10px 4px;font-size:13px;border-left:1px solid #e4ddd0"><option value="g"'+(S.tunit==='g'?' selected':'')+'>g</option><option value="ml"'+(S.tunit==='ml'?' selected':'')+'>ml</option><option value="cl"'+(S.tunit==='cl'?' selected':'')+'>cl</option><option value="L"'+(S.tunit==='L'?' selected':'')+'>L</option></select></div></div>'
+    }
+    ${S.trackerAddMode==='food'?'<button class="btn-p" style="width:100%" onclick="addFT()"'+((!S.tsfood&&!S.scanResult)?' disabled style="background:#f0ebe0;color:#b0b8a8"':'')+'>Ajouter</button>':''}
   </div>`;
 
   let any=false;
@@ -431,10 +429,37 @@ function rTracker(ents,tot,isDim,key){
     any=true;
     const mt=sum(me);
     h+=`<div class="ms"><div class="msh"><div class="mt2"><span style="font-size:18px">${MI[mi]}</span><span class="mn">${mn}</span></div><span class="mk">${Math.round(mt.cal)} kcal</span></div>
-    ${me.map(e=>`<div class="fr"><div><span class="fn">${esc(e.n)}</span><span class="fq">${(function(){const q=e.qty,u=e.u||"";if(u.includes("ml")){if(q>=1000)return(q/1000).toFixed(1)+"L";if(q>=100)return Math.round(q/100)+"cl";return q+"ml";}return q+"g";})()}</span></div><div style="display:flex;align-items:center;gap:10px"><span class="fk">${Math.round(e.cal*e.fac)} kcal</span><span class="fp">P ${Math.round(e.p*e.fac)}g</span><button class="fdel" onclick="delE('${key}','${e.id}')">×</button></div></div>`).join('')}
+    ${me.map(e=>`<div class="fr"><div><span class="fn">${esc(e.n)}</span><span class="fq">${(function(){const q=e.qty,u=e.u||"";if(u.includes("ml")){if(q>=1000)return(q/1000).toFixed(1)+"L";if(q>=100)return q+"ml";return q+"ml";}return q+"g";})()}</span></div><div style="display:flex;align-items:center;gap:10px"><span class="fk">${Math.round(e.cal*e.fac)} kcal</span><span class="fp">P ${Math.round(e.p*e.fac)}g</span><button class="fdel" onclick="delE('${key}','${e.id}')">×</button></div></div>`).join('')}
     </div>`;
   });
   if(!any) h+=`<div class="empty"><div style="font-size:40px;margin-bottom:10px">🌿</div><div>Aucun aliment ajouté aujourd'hui</div></div>`;
+
+  // Photo analysis button at bottom
+  h+=`<div style="background:#fff;border:1px solid #e4ddd0;border-radius:16px;padding:14px;margin-top:8px;margin-bottom:20px">
+    <div style="font-size:13px;font-weight:700;color:#2c3a2c;margin-bottom:4px">📸 Analyser un repas en photo</div>
+    <div style="font-size:12px;color:#b0b8a8;margin-bottom:12px">Prends en photo ton repas — l'IA estime les macros automatiquement</div>
+    ${S.photoAnalyzing?'<div style="text-align:center;padding:16px;color:#7a8a72"><div style="font-size:24px;margin-bottom:8px">🔍</div><div>Analyse en cours...</div></div>':''}
+    ${S.photoError?'<div style="background:#fdecea;border:1px solid #f5c6c2;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;color:#c04a3a">'+esc(S.photoError)+'</div>':''}
+    ${S.photoResult?`<div style="background:#eaf2ec;border:1px solid #c8dece;border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="font-weight:700;color:#2d4a2d;margin-bottom:8px">🍽️ ${esc(S.photoResult.name)}</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div style="flex:1;text-align:center;background:#fff;border-radius:8px;padding:8px"><div style="font-size:16px;font-weight:900;color:#8b6914">${S.photoResult.cal}</div><div style="font-size:10px;color:#b0b8a8">kcal</div></div>
+        <div style="flex:1;text-align:center;background:#fff;border-radius:8px;padding:8px"><div style="font-size:16px;font-weight:900;color:#4a7c59">${S.photoResult.p}g</div><div style="font-size:10px;color:#b0b8a8">Prot.</div></div>
+        <div style="flex:1;text-align:center;background:#fff;border-radius:8px;padding:8px"><div style="font-size:16px;font-weight:900;color:#8b6914">${S.photoResult.c}g</div><div style="font-size:10px;color:#b0b8a8">Glucides</div></div>
+        <div style="flex:1;text-align:center;background:#fff;border-radius:8px;padding:8px"><div style="font-size:16px;font-weight:900;color:#c67c3a">${S.photoResult.f}g</div><div style="font-size:10px;color:#b0b8a8">Lipides</div></div>
+      </div>
+      <div style="font-size:11px;color:#7a8a72;margin-bottom:6px;font-style:italic">📋 ${esc(S.photoResult.details||'')}</div>
+      <div style="font-size:11px;margin-bottom:10px">
+        Fiabilité : <span style="font-weight:700;color:${S.photoResult.confidence==='élevée'?'#4a7c59':S.photoResult.confidence==='moyenne'?'#8b6914':'#c04a3a'}">${S.photoResult.confidence==='élevée'?'🟢 Élevée':S.photoResult.confidence==='moyenne'?'🟡 Moyenne':'🔴 Faible'}</span>
+        <span style="color:#b0b8a8"> — ${S.photoResult.confidence==='élevée'?'~10%':S.photoResult.confidence==='moyenne'?'~20%':'~30%'} de marge d'erreur</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="addPhotoMealToTracker()" style="flex:2;padding:10px;background:#2d4a2d;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">+ Ajouter au tracker</button>
+        <button onclick="S.photoResult=null;r()" style="flex:1;padding:10px;background:#f0ebe0;border:1px solid #e4ddd0;border-radius:10px;color:#7a8a72;font-size:13px;font-family:inherit;cursor:pointer">Annuler</button>
+      </div>
+    </div>`:''}
+    ${!S.photoAnalyzing?'<button onclick="startPhotoAnalysis()" style="width:100%;padding:12px;background:#f0ebe0;border:2px dashed #d0c8b8;border-radius:12px;color:#7a8a72;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer">📷 Prendre une photo du repas</button>':''}
+  </div>`;
   return h;
 }
 
@@ -768,6 +793,38 @@ function rSport(){
   return h;
 }
 
+function trackerRecipeList(){
+  if(!S.recipes.length) return '<div style="text-align:center;color:#b0b8a8;padding:16px;font-size:13px">Aucune recette — crée-en une dans 🍳</div>';
+  const catIcons={'Petit déj':'🥣','Déjeuner':'🍽️','Dîner':'🥘','Collation':'🍎','Post-sport':'💪','Autre':'🍔'};
+  let out='';
+  RC.forEach(function(cat){
+    const cats=S.recipes.filter(function(rx){return rx.cat===cat;});
+    if(!cats.length)return;
+    out+='<div style="font-size:10px;color:#b0b8a8;text-transform:uppercase;letter-spacing:.08em;font-weight:700;padding:8px 14px 4px;background:#f7f3ec">'+(catIcons[cat]||'')+' '+cat+'</div>';
+    cats.forEach(function(rx){
+      const t=sum(rx.ings);
+      out+='<div onclick="addRecipeToTrackerDirect('+rx.id+')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:#fff;border-bottom:1px solid #f0ebe0">'
+        +'<div style="color:#2c3a2c;font-weight:600;font-size:13px">'+esc(rx.name)+'</div>'
+        +'<span style="color:#8b6914;font-size:13px;flex-shrink:0;margin-left:8px">'+Math.round(t.cal)+' kcal</span>'
+        +'</div>';
+    });
+  });
+  return out;
+}
+
+function addRecipeToTrackerDirect(rid){
+  const rx=S.recipes.find(function(x){return x.id===rid;});
+  if(!rx)return;
+  const k=dk(S.day);
+  const meal=+document.getElementById('tmeal')?.value||S.tmeal||0;
+  if(!S.entries[k])S.entries[k]=[];
+  rx.ings.forEach(function(ig){
+    S.entries[k].push({id:'e'+Date.now()+Math.random(),n:ig.n,cal:ig.cal,p:ig.p,f:ig.f,c:ig.c,fac:ig.fac,qty:ig.qty,u:ig.u||'100g',meal});
+  });
+  S.trackerAddMode='food';
+  persist();r();
+}
+
 function planRecipeModeHTML(){
   if(S.recipes.length===0) return '<div style="text-align:center;color:#b0b8a8;padding:16px;font-size:13px">Crée d\'abord une recette 🍳</div>';
   return planRecipeList();
@@ -808,6 +865,160 @@ function autoPlanning(){
   alert('✅ Planning généré pour toute la semaine !');
 }
 
+function rWater(){
+  const key=dk(S.day);
+  const ml=S.water[key]||0;
+  const goal=3500;
+  const pct=Math.min((ml/goal)*100,100);
+  const ok=ml>=goal;
+  const L=(ml/1000).toFixed(2);
+  const glasses=Math.round(ml/200);
+
+  // Week water chart
+  const weekBars=Array.from({length:7},function(_,i){
+    const k=dk(i),v=S.water[k]||0,p=Math.min((v/goal)*100,100);
+    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">'
+      +'<div style="font-size:8px;color:#b0b8a8">'+(v>0?(v/1000).toFixed(1)+'L':'')+'</div>'
+      +'<div style="width:100%;background:'+(v>=goal?'#4a7c59':v>0?'#6bb8e8':'#f0ebe0')+';border-radius:4px 4px 0 0;height:'+p+'%;min-height:'+(v>0?4:0)+'px;transition:height .4s"></div>'
+      +'<div style="font-size:9px;color:'+(i===today?'#4a7c59':'#b0b8a8')+';font-weight:'+(i===today?700:400)+'">'+DS[i]+'</div>'
+      +'</div>';
+  }).join('');
+
+  let h='<div style="font-weight:800;font-size:18px;color:#2c3a2c;margin-bottom:4px">💧 Hydratation</div>';
+  h+='<div style="font-size:12px;color:#b0b8a8;margin-bottom:16px">Objectif : 3.5L / jour</div>';
+
+  // Big display
+  h+='<div style="background:#fff;border:1px solid #e4ddd0;border-radius:20px;padding:24px;text-align:center;margin-bottom:14px">';
+  h+='<div style="font-size:56px;font-weight:900;color:'+(ok?'#4a7c59':'#6bb8e8');h+='">';
+  h+=L+'<span style="font-size:20px">L</span></div>';
+  h+='<div style="font-size:13px;color:#b0b8a8;margin-top:4px">soit ~'+glasses+' verres</div>';
+  // Progress bar
+  h+='<div style="background:#f0ebe0;border-radius:20px;height:14px;margin:16px 0;overflow:hidden">';
+  h+='<div style="width:'+pct+'%;height:100%;background:'+(ok?'#4a7c59':'#6bb8e8')+';border-radius:20px;transition:width .5s"></div></div>';
+  h+='<div style="font-size:12px;color:'+(ok?'#4a7c59':'#8b6914')+';font-weight:700">'+(ok?'✅ Objectif atteint !':'Encore '+(((goal-ml)/1000).toFixed(2))+'L')+'</div>';
+  h+='</div>';
+
+  // Quick add buttons
+  h+='<div style="background:#fff;border:1px solid #e4ddd0;border-radius:16px;padding:14px;margin-bottom:14px">';
+  h+='<div style="font-size:11px;color:#7a8a72;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">+ Ajouter rapidement</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">';
+  const btns=[['🥛 1 verre',200],['☕ Café',150],['🧃 Canette',330],['🍶 50cl',500],['🍼 75cl',750],['🫙 1L',1000]];
+  btns.forEach(function(b){
+    h+='<button onclick="addWater('+b[1]+')" style="padding:10px 4px;background:#f0ebe0;border:1px solid #e4ddd0;border-radius:10px;font-size:12px;font-weight:600;font-family:inherit;color:#2c3a2c;cursor:pointer">'+b[0]+'<div style="font-size:10px;color:#b0b8a8;margin-top:2px">'+b[1]+'ml</div></button>';
+  });
+  h+='</div>';
+  // Custom input
+  h+='<div style="display:flex;gap:8px">';
+  h+='<input type="number" id="waterCustom" placeholder="Quantité en ml" style="flex:1;background:#f0ebe0;border:1px solid #e4ddd0;border-radius:10px;padding:10px 13px;font-size:14px;outline:none;font-family:inherit"/>';
+  h+='<button onclick="addWater(+document.getElementById(\'waterCustom\').value||0)" style="padding:10px 16px;background:#2d4a2d;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer">+</button>';
+  h+='</div>';
+  if(ml>0){
+    h+='<button onclick="resetWater()" style="width:100%;margin-top:10px;padding:8px;background:none;border:1px solid #e4ddd0;border-radius:10px;color:#b0b8a8;font-size:12px;font-family:inherit;cursor:pointer">↺ Remettre à zéro</button>';
+  }
+  h+='</div>';
+
+  // Week chart
+  h+='<div style="background:#fff;border:1px solid #e4ddd0;border-radius:16px;padding:16px;margin-bottom:14px">';
+  h+='<div style="font-size:12px;font-weight:700;color:#6bb8e8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">💧 Hydratation cette semaine</div>';
+  h+='<div style="display:flex;align-items:flex-end;gap:6px;height:80px">'+weekBars+'</div>';
+  h+='<div style="font-size:10px;color:#b0b8a8;margin-top:8px">Objectif : 3.5L/jour</div>';
+  h+='</div>';
+
+  // Photo analysis - redirect to tracker
+  h+='<div style="background:#eaf2ec;border:1px solid #c8dece;border-radius:16px;padding:14px;margin-bottom:20px;text-align:center">';
+  h+='<div style="font-size:20px;margin-bottom:6px">📸</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:#2d4a2d;margin-bottom:4px">Analyser un repas en photo</div>';
+  h+='<div style="font-size:12px;color:#7a8a72;margin-bottom:10px">Disponible en bas de l\'onglet 📊 Tracker</div>';
+  h+='<button onclick="go(\'tracker\')" style="padding:9px 20px;background:#2d4a2d;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">→ Aller au Tracker</button>';
+  h+='</div>';
+
+  return h;
+}
+
+function addWater(ml){
+  if(!ml||ml<=0)return;
+  const key=dk(S.day);
+  S.water[key]=(S.water[key]||0)+ml;
+  persist();r();
+}
+function resetWater(){
+  const key=dk(S.day);
+  S.water[key]=0;
+  persist();r();
+}
+
+async function startPhotoAnalysis(){
+  const input=document.createElement('input');
+  input.type='file';input.accept='image/*';input.capture='environment';
+  input.style.display='none';document.body.appendChild(input);
+  input.onchange=async function(){
+    const file=input.files[0];
+    if(!file){document.body.removeChild(input);return;}
+    S.photoAnalyzing=true;S.photoError=null;S.photoResult=null;r();
+    try{
+      // Convert to base64
+      const b64=await new Promise(function(res,rej){
+        const reader=new FileReader();
+        reader.onload=function(){res(reader.result.split(',')[1]);};
+        reader.onerror=rej;
+        reader.readAsDataURL(file);
+      });
+      // Call Claude API
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:500,
+          messages:[{
+            role:'user',
+            content:[
+              {type:'image',source:{type:'base64',media_type:file.type,data:b64}},
+              {type:'text',text:'Tu es un expert en nutrition sportive. Analyse cette photo de repas avec la plus grande précision possible.\n\nMéthode :\n1. Identifie chaque aliment visible séparément\n2. Estime le grammage de chaque aliment en te basant sur des références visuelles (taille de l\'assiette standard = 26cm, bol = 500ml, verre = 25cl, cuillère à soupe = 15g)\n3. Calcule les macros de chaque aliment séparément puis additionne\n4. Sois précis et réaliste — ne surestime pas les portions\n\nRéponds UNIQUEMENT en JSON valide, sans texte avant ou après :\n{"name":"nom court du repas","cal":calories_totales,"p":proteines_g,"f":lipides_g,"c":glucides_g,"details":"liste des aliments estimés avec grammages ex: Riz cuit 200g, Poulet grillé 150g, Huile 10ml","confidence":"faible/moyenne/élevée"}'}
+            ]
+          }]
+        })
+      });
+      const data=await resp.json();
+      const text=data.content.map(function(i){return i.text||'';}).join('');
+      const clean=text.replace(/```json|```/g,'').trim();
+      const parsed=JSON.parse(clean);
+      S.photoResult={
+        name:parsed.name||'Repas analysé',
+        cal:Math.round(parsed.cal||0),
+        p:Math.round(parsed.p||0),
+        f:Math.round(parsed.f||0),
+        c:Math.round(parsed.c||0),
+        details:parsed.details||'',
+        confidence:parsed.confidence||'moyenne'
+      };
+      S.photoAnalyzing=false;r();
+    }catch(e){
+      S.photoAnalyzing=false;
+      S.photoError='Erreur d\'analyse — réessaie avec une photo plus nette 📷';
+      r();
+    }
+    document.body.removeChild(input);
+  };
+  input.click();
+}
+
+function addPhotoMealToTracker(){
+  if(!S.photoResult)return;
+  const key=dk(S.day);
+  if(!S.entries[key])S.entries[key]=[];
+  const pr=S.photoResult;
+  S.entries[key].push({
+    id:'e'+Date.now(),
+    n:pr.name,cal:pr.cal,p:pr.p,f:pr.f,c:pr.c,
+    fac:1,qty:1,u:'portion',
+    meal:1 // déjeuner par défaut
+  });
+  S.photoResult=null;S.photoError=null;
+  persist();
+  go('tracker');
+}
+
 function rHistory(){
   let h=`<div style="font-size:13px;color:#7a8a72;margin-bottom:16px">Bilan de la semaine</div>`;
   DF.forEach((d,i)=>{
@@ -832,6 +1043,31 @@ function rHistory(){
 }
 
 // ─── ACTIONS ───────────────────────────────────────────────────────
+function forceSave(){
+  const btn=document.querySelector('button[onclick="forceSave()"]');
+  if(btn){btn.textContent='⏳ Sauvegarde...';btn.style.color='#ffd76b';}
+  persist();
+  sbSave().then(function(){
+    if(btn){
+      btn.textContent='✅ Sauvegardé !';
+      btn.style.color='#6bffb8';
+      setTimeout(function(){
+        btn.textContent='☁️ Sauvegarder';
+        btn.style.color='#c8e6c0';
+      },2000);
+    }
+  }).catch(function(){
+    if(btn){
+      btn.textContent='❌ Erreur réseau';
+      btn.style.color='#ff6b6b';
+      setTimeout(function(){
+        btn.textContent='☁️ Sauvegarder';
+        btn.style.color='#c8e6c0';
+      },2000);
+    }
+  });
+}
+
 function go(t){S.tab=t;r();}
 function setDay(i){S.day=i;r();}
 function togCr(){const k=dk(S.day);S.creatine[k]=!S.creatine[k];persist();r();}
@@ -938,12 +1174,20 @@ function addFT(){
   const rawQty=+document.getElementById('tqty')?.value||S.tqty||100;
   const unit=document.getElementById('tunit')?.value||S.tunit||'g';
   const meal=+document.getElementById('tmeal')?.value;
-  let qtyMl=rawQty;
-  if(unit==='cl') qtyMl=rawQty*10;
-  else if(unit==='L') qtyMl=rawQty*1000;
-  const fac=qtyMl/100;
+  // Convert quantity to base (always per 100g or 100ml)
+  let qtyBase=rawQty;
+  if(unit==='cl') qtyBase=rawQty*10;
+  else if(unit==='L') qtyBase=rawQty*1000;
+  const fac=qtyBase/100;
   if(!S.entries[k])S.entries[k]=[];
-  S.entries[k].push({id:'e'+Date.now(),n:foodData.n||foodData.name,cal:foodData.cal,p:foodData.p,f:foodData.f,c:foodData.c,fac,qty:qtyMl,u:unit==='g'?'100g':'100ml',meal});
+  S.entries[k].push({
+    id:'e'+Date.now(),
+    n:foodData.n||foodData.name,
+    cal:foodData.cal,p:foodData.p,f:foodData.f,c:foodData.c,
+    fac,qty:qtyBase,
+    u:unit==='g'?'100g':'100ml',
+    meal
+  });
   S.tsfood=null;S.scanResult=null;S.scanError=null;S.tsearch='';S.tqty=100;S.tunit='g';S.tdrop=false;
   persist();r();
 }
