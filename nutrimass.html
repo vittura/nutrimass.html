@@ -235,6 +235,50 @@ const FDB=[
   {n:"Barre protéinée",cal:200,p:20,f:7,c:18},{n:"Jus d'orange frais",cal:45,p:0.7,f:0.2,c:10},
   {n:"Eau de coco",cal:19,p:0.7,f:0.2,c:3.7},{n:"Lait végétal avoine",cal:45,p:1,f:1.5,c:6.6},
   {n:"Lait végétal amande",cal:24,p:0.8,f:1.5,c:1.8},{n:"Lait de soja",cal:33,p:3.3,f:1.8,c:0.8},
+  // 🍞 Pains & viennoiseries
+  {n:"Brioche (tranche)",cal:367,p:8.5,f:14,c:52,u:"100g"},
+  {n:"Brioche protéinée (Lidl/Aldi)",cal:320,p:15,f:10,c:42,u:"100g"},
+  {n:"Pain au lait",cal:350,p:9,f:10,c:56,u:"100g"},
+  {n:"Croissant",cal:406,p:8.2,f:22,c:46,u:"100g"},
+  {n:"Pain au chocolat",cal:394,p:7.5,f:20,c:48,u:"100g"},
+  {n:"Muffin nature",cal:377,p:6.5,f:15,c:55,u:"100g"},
+  {n:"Muffin protéiné maison",cal:280,p:18,f:9,c:30,u:"100g"},
+  {n:"Pancake (1 pièce)",cal:227,p:6,f:7,c:35,u:"100g"},
+  {n:"Gaufre nature",cal:291,p:7.5,f:10,c:43,u:"100g"},
+  {n:"Crêpe nature",cal:208,p:6.7,f:6,c:31,u:"100g"},
+  {n:"Biscotte",cal:408,p:11,f:6,c:75,u:"100g"},
+  // 🎂 Gâteaux & sucreries
+  {n:"Gâteau au chocolat maison",cal:380,p:6,f:18,c:50,u:"100g"},
+  {n:"Brownie",cal:415,p:5,f:20,c:55,u:"100g"},
+  {n:"Madeleine",cal:418,p:6.5,f:18,c:58,u:"100g"},
+  {n:"Cookie chocolat",cal:480,p:6,f:23,c:63,u:"100g"},
+  {n:"Cookie protéiné",cal:350,p:20,f:12,c:40,u:"100g"},
+  {n:"Cake maison",cal:360,p:6,f:16,c:50,u:"100g"},
+  {n:"Tarte aux pommes (part)",cal:260,p:3,f:11,c:37,u:"100g"},
+  {n:"Fondant au chocolat",cal:420,p:7,f:22,c:52,u:"100g"},
+  {n:"Quatre-quarts",cal:430,p:6,f:22,c:56,u:"100g"},
+  {n:"Biscuit Prince",cal:458,p:7,f:16,c:71,u:"100g"},
+  {n:"Biscuit Lu Petit Beurre",cal:440,p:7,f:13,c:73,u:"100g"},
+  {n:"Spéculoos",cal:484,p:6,f:18,c:75,u:"100g"},
+  {n:"Oreo (3 biscuits)",cal:473,p:5,f:20,c:68,u:"100g"},
+  {n:"Riz au lait",cal:120,p:3.5,f:3,c:20,u:"100g"},
+  {n:"Crème dessert chocolat",cal:130,p:3.5,f:4,c:20,u:"100g"},
+  {n:"Yaourt aux fruits sucré",cal:95,p:3.5,f:2.5,c:15,u:"100g"},
+  // 💪 Snacks protéinés
+  {n:"Barre protéinée Quest",cal:200,p:21,f:8,c:22,u:"1 barre"},
+  {n:"Barre protéinée Fulfil",cal:196,p:20,f:7,c:22,u:"1 barre"},
+  {n:"Barre protéinée Nature Valley",cal:190,p:10,f:6,c:25,u:"1 barre"},
+  {n:"Fromage blanc protéiné (Skyr)",cal:57,p:11,f:0.2,c:4,u:"100g"},
+  {n:"Chips de protéines (snack)",cal:390,p:30,f:14,c:35,u:"100g"},
+  {n:"Nougat protéiné",cal:340,p:22,f:10,c:40,u:"100g"},
+  {n:"Pudding protéiné",cal:105,p:15,f:2,c:8,u:"100g"},
+  {n:"Gateau protéiné maison (avoine/banane)",cal:250,p:16,f:7,c:30,u:"100g"},
+  {n:"Riz soufflé enrobé chocolat",cal:420,p:5,f:14,c:68,u:"100g"},
+  // 🍫 Pâtes à tartiner
+  {n:"Nutella",cal:530,p:6,f:31,c:57,u:"100g"},
+  {n:"Pâte à tartiner protéinée",cal:420,p:20,f:22,c:38,u:"100g"},
+  {n:"Confiture fraise",cal:250,p:0.4,f:0.1,c:62,u:"100g"},
+  {n:"Pâte d'amande",cal:458,p:9,f:24,c:54,u:"100g"},
 ];
 const FCATS=[
   {l:"🥩 Viandes & poissons",k:["poulet","dinde","bœuf","veau","porc","jambon","bacon","merguez","saumon","thon","cabillaud","sardine","maquereau","crevette","moule","truite"]},
@@ -244,7 +288,9 @@ const FCATS=[
   {l:"🍎 Fruits",k:["banane","pomme","orange","fraise","myrtille","kiwi","mangue","ananas","poire","pêche","pastèque","abricot","datte"]},
   {l:"🥜 Oléagineux",k:["amande","noix","cajou","noisette","cacahuète","pistache","chia","lin","tournesol","courge","beurre d'amande","beurre de"]},
   {l:"🫙 Condiments",k:["huile","sauce","ketchup","moutarde","mayo","soja","vinaigre","miel","chocolat","sucre","sirop"]},
-  {l:"💪 Sport",k:["shake","whey","gainer","barre protéinée"]},
+  {l:"💪 Sport",k:["shake","whey","gainer","barre protéinée","isolat","nutripure","pudding","chips de","nougat"]},
+  {l:"🍞 Pains & viennoiseries",k:["brioche","pain au lait","croissant","pain au chocolat","muffin","pancake","gaufre","crêpe","biscotte"]},
+  {l:"🎂 Gâteaux & snacks",k:["gâteau","brownie","madeleine","cookie","cake","tarte","fondant","quatre","biscuit","spéculoos","oreo","riz au lait","crème dessert","yaourt aux fruits","nutella","pâte à tartiner","confiture fraise","pâte d'amande","riz soufflé enrobé"]},
   {l:"🥤 Boissons",k:["jus","eau de coco","lait végétal","lait de soja"]},
 ];
 function gcat(name){const n=name.toLowerCase();for(const c of FCATS)if(c.k.some(k=>n.includes(k)))return c.l;return"🛍️ Autres";}
@@ -262,7 +308,7 @@ let S={
   scannedFoods:[],
   trackerAddMode:'food',
   water:{},
-  photoAnalyzing:false,photoError:null,photoResult:null,
+
   pdrop:false,rdrop:false,
   rfopen:false,rf:{id:null,name:'',cat:'Déjeuner',inst:'',ingqty:100,ings:[]},
   ringsearch:'',
@@ -362,13 +408,12 @@ function mbar(label,val,min,max,col){
   return`<div class="mbw"><div class="mbh"><span class="mbl">${label}</span><span class="mbv" style="color:${sc}">${Math.round(val)}${max?` / ${min}–${max}`:` / ${min}`}</span></div><div class="mbt"><div class="mbf" style="width:${pct}%;background:${bc}"></div></div></div>`;
 }
 function fddrop(id,val){
-  const q=val.toLowerCase();
-  // Combine FOOD_DB with scanned foods (scanned first if they match)
+  const norm=function(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');};
+  const q=norm(val);
   const allFoods=[...S.scannedFoods,...FDB];
-  // Deduplicate by name
   const seen=new Set();
   const unique=allFoods.filter(f=>{if(seen.has(f.n))return false;seen.add(f.n);return true;});
-  const fl=q?unique.filter(f=>f.n.toLowerCase().includes(q)).slice(0,25):[];
+  const fl=q?unique.filter(f=>norm(f.n).includes(q)).slice(0,25):[];
   if(!fl.length)return'';
   return'<div class="dl2">'+fl.map(f=>{
     const isScanned=S.scannedFoods.some(sf=>sf.n===f.n);
@@ -921,14 +966,6 @@ function rWater(){
   h+='<div style="font-size:10px;color:#b0b8a8;margin-top:8px">Objectif : 3.5L/jour</div>';
   h+='</div>';
 
-  // Photo analysis - redirect to tracker
-  h+='<div style="background:#eaf2ec;border:1px solid #c8dece;border-radius:16px;padding:14px;margin-bottom:20px;text-align:center">';
-  h+='<div style="font-size:20px;margin-bottom:6px">📸</div>';
-  h+='<div style="font-size:13px;font-weight:700;color:#2d4a2d;margin-bottom:4px">Analyser un repas en photo</div>';
-  h+='<div style="font-size:12px;color:#7a8a72;margin-bottom:10px">Disponible en bas de l\'onglet 📊 Tracker</div>';
-  h+='<button onclick="go(\'tracker\')" style="padding:9px 20px;background:#2d4a2d;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">→ Aller au Tracker</button>';
-  h+='</div>';
-
   return h;
 }
 
@@ -942,78 +979,6 @@ function resetWater(){
   const key=dk(S.day);
   S.water[key]=0;
   persist();r();
-}
-
-async function startPhotoAnalysis(){
-  const input=document.createElement('input');
-  input.type='file';input.accept='image/*,image/heic,image/heif';input.capture='environment';
-  input.style.display='none';document.body.appendChild(input);
-  input.onchange=async function(){
-    const file=input.files[0];
-    if(!file){document.body.removeChild(input);return;}
-    S.photoAnalyzing=true;S.photoError=null;S.photoResult=null;r();
-    try{
-      // Convert to base64
-      const b64=await new Promise(function(res,rej){
-        const reader=new FileReader();
-        reader.onload=function(){res(reader.result.split(',')[1]);};
-        reader.onerror=rej;
-        reader.readAsDataURL(file);
-      });
-      // Call Claude API
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',
-          max_tokens:500,
-          messages:[{
-            role:'user',
-            content:[
-              {type:'image',source:{type:'base64',media_type:file.type,data:b64}},
-              {type:'text',text:'Tu es un expert en nutrition sportive. Analyse cette photo de repas avec la plus grande précision possible.\n\nMéthode :\n1. Identifie chaque aliment visible séparément\n2. Estime le grammage de chaque aliment en te basant sur des références visuelles (taille de l\'assiette standard = 26cm, bol = 500ml, verre = 25cl, cuillère à soupe = 15g)\n3. Calcule les macros de chaque aliment séparément puis additionne\n4. Sois précis et réaliste — ne surestime pas les portions\n\nRéponds UNIQUEMENT en JSON valide, sans texte avant ou après :\n{"name":"nom court du repas","cal":calories_totales,"p":proteines_g,"f":lipides_g,"c":glucides_g,"details":"liste des aliments estimés avec grammages ex: Riz cuit 200g, Poulet grillé 150g, Huile 10ml","confidence":"faible/moyenne/élevée"}'}
-            ]
-          }]
-        })
-      });
-      const data=await resp.json();
-      const text=data.content.map(function(i){return i.text||'';}).join('');
-      const clean=text.replace(/```json|```/g,'').trim();
-      const parsed=JSON.parse(clean);
-      S.photoResult={
-        name:parsed.name||'Repas analysé',
-        cal:Math.round(parsed.cal||0),
-        p:Math.round(parsed.p||0),
-        f:Math.round(parsed.f||0),
-        c:Math.round(parsed.c||0),
-        details:parsed.details||'',
-        confidence:parsed.confidence||'moyenne'
-      };
-      S.photoAnalyzing=false;r();
-    }catch(e){
-      S.photoAnalyzing=false;
-      S.photoError='Erreur d\'analyse — réessaie ou vérifie ta connexion internet 📷';
-      r();
-    }
-    document.body.removeChild(input);
-  };
-  input.click();
-}
-
-function addPhotoMealToTracker(){
-  if(!S.photoResult)return;
-  const key=dk(S.day);
-  if(!S.entries[key])S.entries[key]=[];
-  const pr=S.photoResult;
-  S.entries[key].push({
-    id:'e'+Date.now(),
-    n:pr.name,cal:pr.cal,p:pr.p,f:pr.f,c:pr.c,
-    fac:1,qty:1,u:'portion',
-    meal:1 // déjeuner par défaut
-  });
-  S.photoResult=null;S.photoError=null;
-  persist();
-  go('tracker');
 }
 
 function rHistory(){
